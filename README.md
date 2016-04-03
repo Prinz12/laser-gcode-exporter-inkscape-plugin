@@ -3,6 +3,7 @@ An Inkscape plugin for exporting vector and image data as G-code for DIY laser c
 
 #### Compatibility:
 You will also need to use my version of Marlin for the base64 raster to work properly.
+https://github.com/Laukku/buildlog-lasercutter-marlin
 In addition you will need a program that sends the G-code file to the laser cutter, like Pronterface.
 
 ## Origins & Changes
@@ -55,10 +56,9 @@ Linux: ~/.config/inkscape/extensions/
 (Re)start Inkscape.
 
 ##### Upgrading Marlin
-Remember to make a backup of your current working Marlin if you have one - it's helpful to clearly label is as such.
-Copy planner.cpp, motion_control.cpp and motion_control.h into your Marlin folder
-Open Marlin.ino and edit the configurations for your machine, if you need to.
-Upload the program, and that should be that.
+Remember to make a backup of your current working Marlin if you have one - it's helpful to clearly label is as such. Then download, modify settings, and upload to Arduino:
+https://github.com/Laukku/buildlog-lasercutter-marlin
+
 
 ##### Help I've never done this before
 Please see [the instructions here](https://github.com/TurnkeyTyranny/buildlog-lasercutter-marlin) on how to install the Arduino and RAMPS 1.4 in your cheapo Chinese laser cutter and how to install Marlin.
