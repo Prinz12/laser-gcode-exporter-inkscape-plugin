@@ -658,7 +658,7 @@ class Gcode_tools(inkex.Effect):
         y = self.unitScale * (((y1+y2)/2) * -self.options.Yscale + self.options.Yoffset)
         out = i * (1.0 - (INTENSITY_CORRECTION * ((x+y)/(AREA_HEIGHT+AREA_WIDTH))))
         #inkex.errormsg("Corrected intensity to %s based on coords: %s,%s" % ("{0:.1f}".format(out),"{0:.1f}".format(x),"{0:.1f}".format(y)))
-        if out < 100: out = 100
+        if out < 50: out = 50
         # Return modified feedrate value
         return out #"{0:.1f}".format(out)
 
@@ -728,12 +728,17 @@ class Gcode_tools(inkex.Effect):
         ######## Make an array containing the image in greyscale, reducing color depth as requested
         gray_array = [[255 for i in range(w)] for j in range(h)]
         for y in range(h):
+            if (self.options.origin == 'topleft'):
+                y_tmp = y
+            else:
+                y_tmp = h-y-1
+
             for x in range(w):
                 pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
                 avg = int(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07)
                 # Reduce color depth
                 reduced = int((int((avg/(float(256)/self.options.greyscale_depth)))) * (float(255) / (self.options.greyscale_depth -1)))
-                gray_array[y][x] = reduced
+                gray_array[y_tmp][x] = reduced
 
         #inkex.errormsg(reduced)
         ####### Make GCode from image data
@@ -935,6 +940,11 @@ class Gcode_tools(inkex.Effect):
         gray_array = [[255 for i in range(w)] for j in range(h)]
         tmp_array = [[0 for i in range(w)] for j in range(h)]
         for y in range(h):
+            if (self.options.origin == 'topleft'):
+                y_tmp = y
+            else:
+                y_tmp = h-y-1
+
             for x in range(w):
                 pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
                 # Convert to grayscale using a method that simulates human vision, and flip value around
@@ -943,14 +953,12 @@ class Gcode_tools(inkex.Effect):
                 # Reduce color depth
                 # reduced = int((int((avg/(float(256)/100)))) * (float(255) / (100 -1)))
                 
-               
-                
-                tmp_array[y][x] = avg # Export a grayscale PNG based on this array
+                tmp_array[y_tmp][x] = avg # Export a grayscale PNG based on this array
                 # Make mid range pixels lighter
                 #=($E$2*255*A1+(1-$E$2)*POWER(A1,$E$1))/255
                 # gray_array[y][x] = (avg**2)/255 # Too much?
                 mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
-                gray_array[y][x] = int((mod*255*avg + (1-mod)*(avg**2))/255)
+                gray_array[y_tmp][x] = int((mod*255*avg + (1-mod)*(avg**2))/255)
                 
         # Make preview png file
         png.from_array(tmp_array,'L').save(exported_png)
@@ -1430,12 +1438,12 @@ class Gcode_tools(inkex.Effect):
         root = self.document.getroot()
         # TODO: This does not seem to affect anything? Maybe used to be useful for the old rastering method?
         # See if the user has the document setup in mm or pixels.
-        #try:
-            #self.pageHeight = float(root.get("height", None))
-        #except:
-            #inkex.errormsg((
-                #"Please change your inkscape project units to be in pixels, not inches or mm. In Inkscape press ctrl+shift+d and change 'units' on the 'Custom size' tab to px. The option 'default units' can be set to mm or inch, these are the units displayed on your rulers."))
-            #return
+        try:
+            self.pageHeight = float(root.get("height", None))
+        except:
+            inkex.errormsg((
+                "Please change your inkscape project units to be in pixels, not inches or mm. In Inkscape press ctrl+shift+d and change 'units' on the 'Custom size' tab to px. The option 'default units' can be set to mm or inch, these are the units displayed on your rulers."))
+            return
 
         self.flipArcs = (self.options.Xscale * self.options.Yscale < 0)
         self.currentTool = 0

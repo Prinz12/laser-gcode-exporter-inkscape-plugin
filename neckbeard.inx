@@ -44,15 +44,15 @@ Tried and true values for different materials (40W CO2 laser)
         </page>
         <page name='tab' _gui-text='Machine Setup'>
             <param name="mainboard" type="enum" _gui-text="Mainboard/Controller: ">
-				<item value="grbl">GRBL 0.9</item>
                 <item value="ramps">Ramps 1.4</item>
+				<item value="grbl">GRBL 0.9</item>
                 <item value="smoothie">Smoothie</item>
             </param>
 			<!-- Homing -->
 			<param name="homing" type="enum" gui-text="Homing ?">
-                <_item value="2">$H (GRBL)</_item>
-				<_item value="1">G28 (Standard)</_item>
 				<_item value="3">No Homing</_item>
+				<_item value="1">G28 (Standard)</_item>
+                <_item value="2">$H (GRBL)</_item>
 			</param>
             <param name="biarc-tolerance" type='float' _gui-text='Biarc interpolation tolerance'>0.3</param>
             <_param name="help" type="description">Biarc interpolation tolerance is the maximum allowed distance between a path and it's approximation. If this value is exceeded, the path will be split into two segments.</_param>
@@ -70,7 +70,7 @@ Tried and true values for different materials (40W CO2 laser)
                 <item value="bottomright">Bottom Left</item>
             </param>
             <_param name="help" type="description">Choose the location your laser head parks at home and cuts from</_param>
-            <param name="filename" type="string" _gui-text="File name: ">output.txt</param>
+            <param name="filename" type="string" _gui-text="File name: ">output.g</param>
             <param name="directory" type="string" _gui-text="Directory: "></param>
             <_param name="help" type="description">(blank is your desktop)</_param>
 			
@@ -99,7 +99,7 @@ Tried and true values for different materials (40W CO2 laser)
 				<_item value="#000000">Black</_item>
 			</param>
 			
-            <param name="resolution" min="1" max="10" type="int" gui-text="Resolution: Cuts per mm">5</param>
+            <param name="resolution" min="1" max="15" type="int" gui-text="Resolution: Cuts per mm">13</param>
 
 			<param name="speed_ON" type="int" min="1" max="9000" gui-text="Rastering speed">5000</param>
 
@@ -108,9 +108,9 @@ Tried and true values for different materials (40W CO2 laser)
 			<!-- Päällekkäiset optiot --> 
 			<!-- <param name="m3commands" type="boolean" gui-text="Need M3 commands to turn laser on?">false</param> -->
 			
-			<param name="laser_min_value" type="int" min="1" max="100" gui-text="Laser minimum brightness">2</param>
+			<param name="laser_min_value" type="int" min="1" max="100" gui-text="Laser minimum brightness">10</param>
 			
-			<param name="laser_max_value" type="int" min="1" max="100" gui-text="Laser maximum brightness">40</param>
+			<param name="laser_max_value" type="int" min="1" max="100" gui-text="Laser maximum brightness">50</param>
 			
 			<param name="greyscale_depth" type="int" min="2" max="100" gui-text="Number of shades of gray to use (0-100, recommended: 10):">12</param>
 			

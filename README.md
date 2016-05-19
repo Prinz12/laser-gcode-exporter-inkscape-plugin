@@ -26,17 +26,17 @@ Like in TurnkeyTyranny's original plugin, each layer can have different settings
 #### Layer parameters
 Layer parameters should be separated by a comma. Whitespace and case doesn't matter. For example: 
 ```
-power:10, feed:3000, repeat:2 
+power=10, feed=3000, repeat=2 
 ```
 raster - This layer will be rastered using the method specified in the options (TODO: a layer parameter for each raster method)
 
-power:20 - Specifies the laser power to use for this layer. For raster mode, this sets the maximum laser intensity.
+power=20 - Specifies the laser power to use for this layer. For raster mode, this sets the maximum laser intensity.
 
-feed:3000 - The speed at which to move on this layer while the laser is on.
+feed=3000 - The speed at which to move on this layer while the laser is on.
 
-repeat:2 - How many times to cut this layer (repeat:1 is default and means the layer is cut once)
+repeat=2 - How many times to cut this layer (repeat:1 is default and means the layer is cut once)
 
-ppm:60 - Pulses per minute
+ppm=60 - Pulses per minute
 
 #### Exporting
 In Inkscape, select Extensions > Export > Neckbeard Laser Exporter.
