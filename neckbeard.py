@@ -7,10 +7,12 @@ Added repeat layer parameter for repeating each cut int times
     TODO: For super optimal paths, repeat every other time in opposite direction?
 
 
-TurnkeyLaserExporter
+Turnkey/All Things RC Laser Exporter
 
 -----------------------------------
-Maintained by Turnkey Tyranny (https://github.com/TurnkeyTyranny/laser-gcode-exporter-inkscape-plugin)
+Modified by Mayhem2408 (John Revil) (https://github.com/mayhem2408/laser-gcode-exporter-inkscape-plugin)
+Originally by Turnkey Tyranny (https://github.com/TurnkeyTyranny/laser-gcode-exporter-inkscape-plugin)
+Special Thanks to Lauri Niskanen for their massive effects
 Designed to run on Ramps 1.4 + Marlin firmware on a K40 CO2 Laser Cutter.
 Based on think|haus gcode inkscape extension
 Based on a script by Nick Drobchenko from the CNC club
@@ -473,7 +475,7 @@ class Gcode_tools(inkex.Effect):
                                      help="Offset along X")
         self.OptionParser.add_option("-y", "--Yoffset", action="store", type="float", dest="Yoffset", default="0.0",
                                      help="Offset along Y")
-        self.OptionParser.add_option("", "--homing", action="store", type="int", dest="homing", default="2", help="")
+        self.OptionParser.add_option("", "--homing", action="store", type="int", dest="homing", default="4", help="")
 
         self.OptionParser.add_option("-m", "--Mfeed", action="store", type="int", dest="Mfeed", default="5000",
                                      help="Default Move Feed rate in unit/min")
@@ -516,6 +518,10 @@ class Gcode_tools(inkex.Effect):
                                      default="#ffffff", help="")
         self.OptionParser.add_option("", "--raster_method", action="store", type="string", dest="raster_method",
                                      default="base64", help="")
+        self.OptionParser.add_option("", "--raster_direction", action="store", type="string", dest="raster_direction",
+                                     default="H", help="")
+        self.OptionParser.add_option("", "--raster_45deg_adjust", action="store", type="inkbool", dest="raster_45deg_adjust",
+                                     default="True", help="")
         self.OptionParser.add_option("", "--resolution", action="store", type="int", dest="resolution", default="5",
                                      help="")
         self.OptionParser.add_option("", "--speed_ON", action="store", type="int", dest="speed_ON", default="1500",
@@ -536,8 +542,8 @@ class Gcode_tools(inkex.Effect):
                                      default="1", help="")
         self.OptionParser.add_option("", "--logging", action="store", type="inkbool", dest="logging",
                                      default="False", help="")                             
-        self.OptionParser.add_option("", "--flip_y", action="store", type="inkbool", dest="flip_y",
-                                     default="True", help="")   
+        #self.OptionParser.add_option("", "--flip_y", action="store", type="inkbool", dest="flip_y",
+                                     #default="True", help="")   
         self.OptionParser.add_option("", "--b", action="store", type="inkbool", dest="b",
                                      default="False", help="")
         self.OptionParser.add_option("", "--dummylength", action="store", type="int", dest="dummylength",
@@ -694,7 +700,7 @@ class Gcode_tools(inkex.Effect):
     
    
     # Make raster gcode that burns an area in greyscale
-    def Raster(self, id, rasterspeed=None, resolution=None, max_power=None):
+    def Raster(self, id, rasterspeed=None, resolution=None, max_power=None, min_power=None):
         raster_gcode = ''
         if rasterspeed==None:
             rasterspeed = self.options.rasterspeed
@@ -702,6 +708,8 @@ class Gcode_tools(inkex.Effect):
             resolution = self.options.resolution    
         if max_power==None or max_power <= 0:
             max_power = self.options.laser_max_value    
+        if min_power==None or min_power < 0:
+            min_power = self.options.laser_min_value    
         # TODO: What options should be accepted from the layer name parsing?
         
         DPI = resolution * 25.4
@@ -742,8 +750,8 @@ class Gcode_tools(inkex.Effect):
 
         #inkex.errormsg(reduced)
         ####### Make GCode from image data
-        if self.options.flip_y == False:
-            gray_array.reverse()
+        #if self.options.flip_y == False:
+            #gray_array.reverse()
 
         Laser_ON = False
 
@@ -756,6 +764,8 @@ class Gcode_tools(inkex.Effect):
             raster_gcode += 'G28; home all axes\n'
         elif self.options.homing == 2:
             raster_gcode += '$H; home all axes\n'
+        elif self.options.homing == 3:
+            raster_gcode += 'G00 X0 Y0; Returning to origin\n'
         else:
             pass
         raster_gcode += 'G21; Set units to millimeters\n'
@@ -887,7 +897,7 @@ class Gcode_tools(inkex.Effect):
 
     # Make raster gcode that burns an area in greyscale. base64 makes file transfer efficient.
     # TODO: Please note that this function is not quite ready yet, and does not produce good gcode.
-    def Rasterbase64(self, id, rasterspeed=None, resolution=None, max_power=None):
+    def Rasterbase64(self, id, rasterspeed=None, resolution=None, max_power=None, min_power=None):
         raster_gcode = ''
         if rasterspeed==None:
             rasterspeed = self.options.rasterspeed
@@ -895,6 +905,8 @@ class Gcode_tools(inkex.Effect):
             resolution = self.options.resolution    
         if max_power==None or max_power <= 0:
             max_power = self.options.laser_max_value    
+        if min_power==None or min_power < 0:
+            min_power = self.options.laser_min_value    
         # TODO: What options should be accepted from the layer name parsing?
         
         
@@ -905,7 +917,9 @@ class Gcode_tools(inkex.Effect):
         # resolution : default 5 : cuts per mm, size of pixel
         # Therefore size of pixel = 1/5 = 0.2 mm
         pixelsize = "{0:.5f}".format(1 / (float(DPI) / 25.4))
-        
+
+        if self.options.raster_45deg_adjust == True:
+            DPI = DPI / math.sqrt(2)
         #This extension assumes that your copy of Inkscape is running at 90dpi (it is by default)
         #R = mm per pixel
         
@@ -936,38 +950,75 @@ class Gcode_tools(inkex.Effect):
         w, h, pixels, metadata = reader.read_flat()
         
         #inkex.errormsg(str(metadata))
-        ######## Make an array containing the image in greyscale
-        gray_array = [[255 for i in range(w)] for j in range(h)]
-        tmp_array = [[0 for i in range(w)] for j in range(h)]
-        for y in range(h):
-            if (self.options.origin == 'topleft'):
-                y_tmp = y
-            else:
-                y_tmp = h-y-1
 
-            for x in range(w):
-                pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
-                # Convert to grayscale using a method that simulates human vision, and flip value around
-                avg = 255 -(int(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07))
+        def changerange256(oldvalue,newmin,newmax):
+            newrange = newmax-newmin
+            newvalue = int(((oldvalue*newrange)/255)+newmin)
+            if int(newvalue) <= int(newmin):
+                newvalue = 0
+            return int(newvalue)
+
+        ######## Make an array containing the image in greyscale
+        # if direction is Horizontal or 45deg
+        if self.options.raster_direction != 'V':
+            gray_array = [[255 for i in range(w)] for j in range(h)]
+            tmp_array = [[0 for i in range(w)] for j in range(h)]
+            for y in range(h):
+                if (self.options.origin == 'topleft'):
+                    y_tmp = y
+                else:
+                    y_tmp = h-y-1
+
+                for x in range(w):
+                    pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
+                    # Convert to grayscale using a method that simulates human vision, and flip value around
+                    avg = 255 -(int(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07))
                
-                # Reduce color depth
-                # reduced = int((int((avg/(float(256)/100)))) * (float(255) / (100 -1)))
+                    # Reduce color depth
+                    # reduced = int((int((avg/(float(256)/100)))) * (float(255) / (100 -1)))
                 
-                tmp_array[y_tmp][x] = avg # Export a grayscale PNG based on this array
-                # Make mid range pixels lighter
-                #=($E$2*255*A1+(1-$E$2)*POWER(A1,$E$1))/255
-                # gray_array[y][x] = (avg**2)/255 # Too much?
-                mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
-                gray_array[y_tmp][x] = int((mod*255*avg + (1-mod)*(avg**2))/255)
+                    tmp_array[y_tmp][x] = avg # Export a grayscale PNG based on this array
+                    # Make mid range pixels lighter
+                    #=($E$2*255*A1+(1-$E$2)*POWER(A1,$E$1))/255
+                    # gray_array[y][x] = (avg**2)/255 # Too much?
+                    mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
+                    gray_array[y_tmp][x] = int((mod*255*avg + (1-mod)*(avg**2))/255)
+
+        # if Vertical
+        else:
+            gray_array = [[255 for i in range(h)] for j in range(w)]
+            tmp_array = [[0 for i in range(h)] for j in range(w)]
+            for y in range(h):
+                if (self.options.origin == 'topleft'):
+                    y_tmp = y
+                else:
+                    y_tmp = h-y-1
+
+                for x in range(w):
+                    pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
+                    # Convert to grayscale using a method that simulates human vision, and flip value around
+                    avg = 255 -(int(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07))
+               
+                    # Reduce color depth
+                    # reduced = int((int((avg/(float(256)/100)))) * (float(255) / (100 -1)))
                 
+                    tmp_array[x][y_tmp] = avg # Export a grayscale PNG based on this array
+                    #tmp_array[x][y_tmp] = int(changerange256(tmp_array[x][y_tmp],min_power*2.55,255)) # Export a grayscale PNG based on this array
+                    # Make mid range pixels lighter
+                    #=($E$2*255*A1+(1-$E$2)*POWER(A1,$E$1))/255
+                    # gray_array[y][x] = (avg**2)/255 # Too much?
+                    mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
+                    gray_array[x][y_tmp] = int((mod*255*avg + (1-mod)*(avg**2))/255)
+                    #gray_array[x][y_tmp] = int(changerange256(gray_array[y_tmp][x],min_power*2.55,255))
+        
         # Make preview png file
         png.from_array(tmp_array,'L').save(exported_png)
         
         
         #inkex.errormsg(reduced)
         ####### Make GCode from image data
-        if self.options.flip_y == False:
-            gray_array.reverse()
+        #if self.options.flip_y == False:
+            #gray_array.reverse()
 
         Laser_ON = False
 
@@ -980,6 +1031,8 @@ class Gcode_tools(inkex.Effect):
             raster_gcode += 'G28; home all axes\n'
         elif self.options.homing == 2:
             raster_gcode += '$H; home all axes\n'
+        elif self.options.homing == 3:
+            raster_gcode += 'G00 X0 Y0; Returning to origin\n'
         else:
             pass
         raster_gcode += 'G21; Set units to millimeters\n'
@@ -994,6 +1047,24 @@ class Gcode_tools(inkex.Effect):
             # return "{0:.1f}".format(max_power - (((max_power - self.options.laser_min_value) * pix) / float(255)))
             return "{0:.1f}".format((max_power  * pix) / float(255))
         
+        # the rasterto function will let the S (power) value to the max_power of the layer or default. We want to keep it this way just for safely in the even
+        # data gets messed up there is no way the laser will ever power more than the max_power
+        # so the idea here is the S is 50, the data needs to represent 255 to get 50% power
+        # The problem is the min_power. If it is set to 20%, once S50 hits that, it becomes 12-13%. So we need to set the lowest valuse proportionally higher
+        # based the the max_power of S to get a real world range between 20-50.
+        # ie. Max = 50, Min = 25
+        # scale = 100 / 50 = 2
+        # New Min will be 25 * scale = 25 * 2 = 50
+        # Once S50 hits a 50% value, it will become 25% which is the min.
+        def rescale(data_array,minp,maxp):
+            new_scale = 100 / maxp
+            new_min = minp * new_scale
+            m = 0
+            while m < len(data_array):
+                data_array[m] = changerange256(data_array[m],int(new_min*2.55),255)
+                m += 1
+            return data_array
+
         def G0(x,y,speed="fast",comment=""):
             g ="" #"M649 S0 B0 D0\n"
           
@@ -1020,7 +1091,7 @@ class Gcode_tools(inkex.Effect):
             # inkex.errormsg("Chunks: %s" % chunks)
             return chunks 
         
-        def rasterto(fromx, tox, y, data, di=1): # di = direction 1=right, 0=left
+        def rastertoH(fromx, tox, y, data, di=1): # di = direction 1=right, 0=left
             # inkex.errormsg("Rasterto: %s-%s, %s, %s, %s" % (fromx, tox, y, data, len(data)))
             # Break down data on multiple lines if necessary
             output=""
@@ -1045,8 +1116,71 @@ class Gcode_tools(inkex.Effect):
             # output += G0(tox,y,"slow", "Raster data carrier") # G7 fills this move with raster data without this one the G0 that moves down a row gets the raster data.
             return output
         
+        def rastertoV(fromy, toy, x, data, di=3): # di = direction 3=positive (away from origin), 2=negative (towards origin)
+            # inkex.errormsg("Rasterto: %s-%s, %s, %s, %s" % (fromx, tox, y, data, len(data)))
+            # Break down data on multiple lines if necessary
+            output=""
+            # pixel = 0.09406 # Height of a pixel / row in raster image //TODO: Make option and calculate the correct export dpi automatically
+            first=True
+            d = get_chunks(data)
+            # Go to beginning of raster line
+            if di >0:
+                fromy -= 1
+            output += G0(x,fromy,"slow","Row n.%s" % y)
+            output += 'M649 S'+str(max_power)+' B2 D0 R'+str(pixelsize)+'\n'
+            for dat in d:
+               
+                b64 = base64.b64encode("".join(chr(c) for c in dat),"99")
+                l = str(len(b64))
+                if first:
+                    #First line contains direction
+                    output += 'G7 $' +str(di)+ ' L' +l+ ' D' + b64 + '\n'
+                    first = False
+                else:
+                    output += 'G7 L' +l+ ' D' + b64 + '\n'
+            # output += G0(tox,y,"slow", "Raster data carrier") # G7 fills this move with raster data without this one the G0 that moves down a row gets the raster data.
+            return output
 
-        
+        def rasterto45(fromx, fromy, data, di=5): # di = direction 5= 45 deg -x +y, 4= +x -y
+            # inkex.errormsg("Rasterto: %s-%s, %s, %s, %s" % (fromx, tox, y, data, len(data)))
+            # Break down data on multiple lines if necessary
+            output=""
+            # pixel = 0.09406 # Height of a pixel / row in raster image //TODO: Make option and calculate the correct export dpi automatically
+            first=True
+            d = get_chunks(data)
+            # Go to beginning of raster line
+            #if di > 4:
+            #    fromy -= 1
+            #inkex.errormsg("fromx:%s, fromy:%s" % (fromx,fromy))
+            fromx45 = fromx
+            fromy45 = fromy
+            if self.options.raster_45deg_adjust == True:
+                if self.options.raster_direction == "45":
+                    fromx45 = fromx45 * math.sqrt(2)
+                    fromy45 = fromy45 * math.sqrt(2)
+            output += G0(fromx45,fromy45,"slow","Row n.%s" % y)
+            pixelsize45 = float(pixelsize) * math.sqrt(2)
+            if self.options.raster_45deg_adjust == True:
+                pixelsize45 = pixelsize45 * math.sqrt(2)
+            #output += 'M649 S'+str(max_power)+' B2 D0 R'+str(pixelsize45)+'\n'
+            #output += 'M649 '
+            #output += str("S%.1f" % max_power)
+            #output += ' B2 D0 R'
+            #output += str("%.4f" % pixelsize45)
+            #output += '\n'
+            output += 'M649 S'+str(max_power)+' B2 D0 R%.5f\n' % (pixelsize45)
+            for dat in d:
+               
+                b64 = base64.b64encode("".join(chr(c) for c in dat),"99")
+                l = str(len(b64))
+                if first:
+                    #First line contains direction
+                    output += 'G7 $' +str(di)+ ' L' +l+ ' D' + b64 + '\n'
+                    first = False
+                else:
+                    output += 'G7 L' +l+ ' D' + b64 + '\n'
+            # output += G0(tox,y,"slow", "Raster data carrier") # G7 fills this move with raster data without this one the G0 that moves down a row gets the raster data.
+            return output
         
         
         maxwhite = 20 # Maximum number of white pixels to allow in a raster command,
@@ -1055,69 +1189,86 @@ class Gcode_tools(inkex.Effect):
         startx=0
         whitepixels = 0
 
-        while y < len(gray_array):
-            if y % 2 == 0:  # Back and forth motion, start by going right
-                startx=0
-                while x < len(gray_array[y]):
-                    
-                    # if pixel is not white: #(value less than white cut-off value)
-                    if gray_array[y][x] > 0: #>= chr(255-self.options.white_cutoff):
-                        # Look at the row of pixels to determine best approach; skip row if all white, break into smaller pieces if over maxwhite white pixels, else raster whole row
-                        startx = x
-                        whitepixels = 0
-                        # loop until too many white pixels are found 
-                        while x < len(gray_array[y]) and whitepixels <= maxwhite:
-                        #and x+whitepixels < len(gray_array[y]):
-                            if gray_array[y][x] >0:#>= chr(255-self.options.white_cutoff):
-                                # Pixel is colourful, no problem, look for more pixels
-                                whitepixels = 0 # reset counter
-                                x += 1
-                                endx = x
-                            else:
-                                # Pixel is boring white, count how many of those have been seen in a row
-                                whitepixels += 1
-                                x += 1
-                            
-                        # x -= whitepixels # Only raster to the end of colourful pixels. x was advanced too much in the previous loop if it ended in too many white pixels.
+        if (self.options.raster_direction != '45'):
+            while y < len(gray_array):
+                if y % 2 == 0:  # Back and forth motion, start by going right
+                    startx=0
+                    while x < len(gray_array[y]):
                         
-                        # Finally, move to beginning of raster line and perform line.
-                        data = gray_array[y][startx:endx]
-                        raster_gcode += rasterto(startx,endx,y,data,1) # 1= direction: right
+                        # if pixel is not white: #(value less than white cut-off value)
+                        if gray_array[y][x] > 0: #>= chr(255-self.options.white_cutoff):
+                            # Look at the row of pixels to determine best approach; skip row if all white, break into smaller pieces if over maxwhite white pixels, else raster whole row
+                            startx = x
+                            whitepixels = 0
+                            # loop until too many white pixels are found 
+                            while x < len(gray_array[y]) and whitepixels <= maxwhite:
+                            #and x+whitepixels < len(gray_array[y]):
+                                if gray_array[y][x] >0:#>= chr(255-self.options.white_cutoff):
+                                    # Pixel is colourful, no problem, look for more pixels
+                                    whitepixels = 0 # reset counter
+                                    x += 1
+                                    endx = x
+                                else:
+                                    # Pixel is boring white, count how many of those have been seen in a row
+                                    whitepixels += 1
+                                    x += 1
+                                
+                            # x -= whitepixels # Only raster to the end of colourful pixels. x was advanced too much in the previous loop if it ended in too many white pixels.
                         
-                    else: # Did not find a non-white pixel this time, continue right
-                        x += 1
-            else:  # Coming back left
-                startx=-1
-                while x > 0:
-                    # if pixel is not white: #(value less than white cut-off value)
-                    if gray_array[y][x - 1] >0: #>= chr(255-self.options.white_cutoff):
-                        # <= self.options.white_cutoff:
-                        startx=x
-                        whitepixels=0
-                        while x > 0 and whitepixels <= maxwhite:
-                            if gray_array[y][x-1] >0: #>= chr(255-self.options.white_cutoff):
-                                # Pixel is colourful, no problem, look for more pixels
-                                whitepixels = 0 # reset counter
-                                x -= 1
-                                endx = x
-                            else:
-                                # Pixel is boring white, count how many of those have been seen in a row
-                                whitepixels += 1
-                                x -= 1
+                            # Finally, move to beginning of raster line and perform line.
+                            data = gray_array[y][startx:endx]
                             
-                        # x += whitepixels # Only raster to the end of colourful pixels. x was advanced too much in the previous loop if it ended in too many white pixels.
+                            data = rescale(data,min_power,max_power)
+                            
+                            if self.options.raster_direction == "V":
+                                raster_gcode += rastertoV(startx,endx,y,data,3) # 3 = direction: Vertical away from Origin
+                            else:
+                                raster_gcode += rastertoH(startx,endx,y,data,1) # 1= direction: right
+                                
+                            
+                        else: # Did not find a non-white pixel this time, continue right
+                            x += 1
+                else:  # Coming back left
+                    startx=-1
+                    while x > 0:
+                        # if pixel is not white: #(value less than white cut-off value)
+                        if gray_array[y][x - 1] >0: #>= chr(255-self.options.white_cutoff):
+                            # <= self.options.white_cutoff:
+                            startx=x
+                            whitepixels=0
+                            while x > 0 and whitepixels <= maxwhite:
+                                if gray_array[y][x-1] >0: #>= chr(255-self.options.white_cutoff):
+                                    # Pixel is colourful, no problem, look for more pixels
+                                    whitepixels = 0 # reset counter
+                                    x -= 1
+                                    endx = x
+                                else:
+                                    # Pixel is boring white, count how many of those have been seen in a row
+                                    whitepixels += 1
+                                    x -= 1
+                                
+                            # x += whitepixels # Only raster to the end of colourful pixels. x was advanced too much in the previous loop if it ended in too many white pixels.
                         
 
-                        # Finally, move to beginning of raster line and perform line.
-                        data = gray_array[y][endx:startx]
-                        data.reverse()
-                        raster_gcode += rasterto(startx,endx,y,data,0) # 0= direction: left
+                            # Finally, move to beginning of raster line and perform line.
+                            data = gray_array[y][endx:startx]
 
-                    else:
-                        x -= 1
+                            data = rescale(data,min_power,max_power)
+
+                            data.reverse()
+                            if self.options.raster_direction == "V":
+                                raster_gcode += rastertoV(startx,endx,y,data,2) # 2 = direction: Vertical towards Origin
+                            else:
+                                raster_gcode += rastertoH(startx,endx,y,data,0) # 1= direction: left
+                            #raster_gcode += rasterto(startx,endx,y,data,0) # 0= direction: left
+    
+                        else:
+                            x -= 1
               
-            # At the end of the row, move down by one pixel
-            y += 1
+                # At the end of the row, move down by one pixel
+                y += 1
+        #else:  #45 degree stuff Comming but not ready yet.
+
         raster_gcode += 'M649 S0 B0 D0\n' # Trying to turn off the laser
         raster_gcode += 'M5\n'
         return raster_gcode
@@ -1374,18 +1525,21 @@ class Gcode_tools(inkex.Effect):
             # Decision time
             if layerParams.get('raster', False):
                 # Raster this layer
+                raster_max_power = layerParams.get('power',self.options.laser_max_value)
+                raster_max_power = layerParams.get('maxpower',raster_max_power)
+                raster_min_power = layerParams.get('minpower',self.options.laser_min_value)
                 if self.options.raster_method == "base64":
                     inkex.errormsg("Will raster layer " + layer.get('id') + " using base64 encoding.")
                     gcode_raster += ";Rastering layer " + layer.get('id') + ': ' + label +  '\n'
 
                     gcode_raster += self.Rasterbase64(layer.get("id"), layerParams.get('feed',self.options.speed_ON), layerParams.get('resolution',self.options.resolution),
-                    layerParams.get('power',self.options.laser_max_value))
+                    raster_max_power,raster_min_power)
                 else:
                     inkex.errormsg("Will raster layer " + layer.get('id'))
                     gcode_raster += ";Rastering layer " + layer.get('id') + ': ' + label +  '\n'
 
                     gcode_raster += self.Raster(layer.get("id"), layerParams.get('feed',self.options.speed_ON), layerParams.get('resolution',self.options.resolution),
-                    layerParams.get('power',self.options.laser_max_value))
+                    raster_max_power,raster_min_power)
                 
             elif layerParams.get('crosshatch', False):
                 # Raster by cross-hatching diagonally
@@ -1423,9 +1577,11 @@ class Gcode_tools(inkex.Effect):
             if self.options.homing == 1:
                 gcode += 'G28; home all axes\n'
             elif self.options.homing == 2:
-                gcode += 'G28; home all axes\n'
+                gcode += '$H; home all axes\n'
+            elif self.options.homing == 3:
+                gcode += 'G00 X0 Y0; Returning to origin\n'
             else:
-                gcode += 'G00 X0 Y0; home\n'
+                pass
 
         # Now write gcode, raster data first
         return gcode_raster + "\n\n" + gcode
@@ -1470,9 +1626,9 @@ class Gcode_tools(inkex.Effect):
             return
 
         gcode = self.header
-        gcode += ";This gcode was generated with Neckbeard Laser Exporter: \n"
+        gcode += ";This gcode was generated with Neckbeard/All Things RC Laser Exporter: \n"
         gcode += ";A powerful Inkscape extension that can make gcode for both cutting paths\n"
-        gcode += ";and rastering/engraving images. Brought to you by Lauri Niskanen. \n"
+        gcode += ";and rastering/engraving images. Brought to you by John Revill and Lauri Niskanen. \n"
         # Save svg document name into gcode file so you'll know what the file contains
         try:
             SODIPODI_NAMESPACE = "http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
@@ -1501,13 +1657,23 @@ class Gcode_tools(inkex.Effect):
 
         # Put the header data in the gcode file
         gcode += """
-; Raster data will always precede vector data           
+; Raster data will always precede vector data
 ; Default Cut Feedrate %i mm per minute
 ; Default Move Feedrate %i mm per minute
-; Default Laser Intensity %i percent\n""" % (self.options.feed, self.options.Mfeed, self.options.laser)
+; Default Laser Intensity %i percent
+; Default Laser Raster Minimum Intensity %i percent
+; Default Laser Raster Maximum Intensity %i percent\n""" % (self.options.feed, self.options.Mfeed, self.options.laser,self.options.laser_min_value,self.options.laser_max_value)
 
         if self.options.homebefore:
-            gcode += "G28 ; home all\n\n"
+            #gcode += "G28 ; home all\n\n"
+            if self.options.homing == 1:
+                gcode += 'G28; home all axes\n'
+            elif self.options.homing == 2:
+                gcode += '$H; home all axes\n'
+            elif self.options.homing == 3:
+                gcode += 'G00 X0 Y0; Returning to origin\n'
+            else:
+                pass
 
         # if self.options.function == 'Curve':
         data = self.effect_curve() #selected)
