@@ -38,6 +38,7 @@ minpower=number : laser intensity, 0-100. Only used when rastering, minimum inte
 maxpower=number : laser intensity, 0-100. Only used when rastering, maximum intensity.
   if maxpower and power exist in the same layer, maxpower will be used.
 feed=number: speed of cut
+dir=h,v,45 : direction of Base64 rastering
 repeat=number : How many times to cut, defaults to 1
 raster : Raster (images, objects and paths)
 resolution=number : How many lines per mm when rastering
@@ -103,11 +104,11 @@ Tried and true values for different materials (40W CO2 laser)
 <!--                 <_item value="#000000">Black</_item> -->
             </param>
             <param name="raster_direction" type="enum" gui-text="Raster Line Direction">
-				<_item value="H">Horizontal (Standard)</_item>
-				<_item value="V">Vertical</_item>
+				<_item value="h">Horizontal (Standard)</_item>
+				<_item value="v">Vertical</_item>
 				<_item value="45">45 Degree (WIP)</_item>
 			</param>
-            <_param name="help" type="description">Horizontal work with all G7 enabled Marlin firmware. Vertical and 45 Deg only works with All Things RC Firmware</_param>
+            <_param name="help" type="description">Only works with All Things RC marlin firmware and Base64 encoding. GRBL comming soon.</_param>
             <param name="raster_45deg_adjust" type="boolean" gui-text="Adjust Resolution for 45deg Raster Line">true</param>
             <_param name="help" type="description">Lines at 45deg will appear closer to each other than the Horizontal and vertial resolution. Selecting this option will adjust the DPI so that the 45deg line will be the correct distance apart.</_param>
             <param name="bg_color" type="enum" gui-text="Replace transparency with">
