@@ -519,7 +519,7 @@ class Gcode_tools(inkex.Effect):
         self.OptionParser.add_option("", "--raster_method", action="store", type="string", dest="raster_method",
                                      default="base64", help="")
         self.OptionParser.add_option("", "--raster_direction", action="store", type="string", dest="raster_direction",
-                                     default="H", help="")
+                                     default="h", help="")
         self.OptionParser.add_option("", "--raster_45deg_adjust", action="store", type="inkbool", dest="raster_45deg_adjust",
                                      default="True", help="")
         self.OptionParser.add_option("", "--resolution", action="store", type="int", dest="resolution", default="5",
@@ -705,7 +705,7 @@ class Gcode_tools(inkex.Effect):
         if rasterspeed==None:
             rasterspeed = self.options.rasterspeed
         if resolution==None or resolution <= 0:
-            resolution = self.options.resolution    
+            resolution = self.options.resolution
         if max_power==None or max_power <= 0:
             max_power = self.options.laser_max_value    
         if min_power==None or min_power < 0:
@@ -897,7 +897,7 @@ class Gcode_tools(inkex.Effect):
 
     # Make raster gcode that burns an area in greyscale. base64 makes file transfer efficient.
     # TODO: Please note that this function is not quite ready yet, and does not produce good gcode.
-    def Rasterbase64(self, id, rasterspeed=None, resolution=None, max_power=None, min_power=None):
+    def Rasterbase64(self, id, rasterspeed=None, resolution=None, max_power=None, min_power=None, raster_dir=None):
         raster_gcode = ''
         if rasterspeed==None:
             rasterspeed = self.options.rasterspeed
@@ -907,6 +907,9 @@ class Gcode_tools(inkex.Effect):
             max_power = self.options.laser_max_value    
         if min_power==None or min_power < 0:
             min_power = self.options.laser_min_value    
+        if raster_dir==None:
+            raster_dir = self.options.raster_direction
+        raster_dir = str(raster_dir)
         # TODO: What options should be accepted from the layer name parsing?
         
         
@@ -960,7 +963,7 @@ class Gcode_tools(inkex.Effect):
 
         ######## Make an array containing the image in greyscale
         # if direction is Horizontal or 45deg
-        if self.options.raster_direction != 'V':
+        if raster_dir != 'v':
             gray_array = [[255 for i in range(w)] for j in range(h)]
             tmp_array = [[0 for i in range(w)] for j in range(h)]
             for y in range(h):
@@ -1154,20 +1157,13 @@ class Gcode_tools(inkex.Effect):
             #inkex.errormsg("fromx:%s, fromy:%s" % (fromx,fromy))
             fromx45 = fromx
             fromy45 = fromy
-            if self.options.raster_45deg_adjust == True:
-                if self.options.raster_direction == "45":
-                    fromx45 = fromx45 * math.sqrt(2)
-                    fromy45 = fromy45 * math.sqrt(2)
-            output += G0(fromx45,fromy45,"slow","Row n.%s" % y)
             pixelsize45 = float(pixelsize) * math.sqrt(2)
             if self.options.raster_45deg_adjust == True:
                 pixelsize45 = pixelsize45 * math.sqrt(2)
-            #output += 'M649 S'+str(max_power)+' B2 D0 R'+str(pixelsize45)+'\n'
-            #output += 'M649 '
-            #output += str("S%.1f" % max_power)
-            #output += ' B2 D0 R'
-            #output += str("%.4f" % pixelsize45)
-            #output += '\n'
+                fromx45 = fromx45 * math.sqrt(2)
+                fromy45 = fromy45 * math.sqrt(2)
+            output += G0(fromx45,fromy45,"slow","Row n.%s" % y)
+
             output += 'M649 S'+str(max_power)+' B2 D0 R%.5f\n' % (pixelsize45)
             for dat in d:
                
@@ -1189,7 +1185,7 @@ class Gcode_tools(inkex.Effect):
         startx=0
         whitepixels = 0
 
-        if (self.options.raster_direction != '45'):
+        if (raster_dir != '45'):
             while y < len(gray_array):
                 if y % 2 == 0:  # Back and forth motion, start by going right
                     startx=0
@@ -1220,7 +1216,7 @@ class Gcode_tools(inkex.Effect):
                             
                             data = rescale(data,min_power,max_power)
                             
-                            if self.options.raster_direction == "V":
+                            if raster_dir == "v":
                                 raster_gcode += rastertoV(startx,endx,y,data,3) # 3 = direction: Vertical away from Origin
                             else:
                                 raster_gcode += rastertoH(startx,endx,y,data,1) # 1= direction: right
@@ -1256,7 +1252,7 @@ class Gcode_tools(inkex.Effect):
                             data = rescale(data,min_power,max_power)
 
                             data.reverse()
-                            if self.options.raster_direction == "V":
+                            if raster_dir == "v":
                                 raster_gcode += rastertoV(startx,endx,y,data,2) # 2 = direction: Vertical towards Origin
                             else:
                                 raster_gcode += rastertoH(startx,endx,y,data,0) # 1= direction: left
@@ -1533,7 +1529,7 @@ class Gcode_tools(inkex.Effect):
                     gcode_raster += ";Rastering layer " + layer.get('id') + ': ' + label +  '\n'
 
                     gcode_raster += self.Rasterbase64(layer.get("id"), layerParams.get('feed',self.options.speed_ON), layerParams.get('resolution',self.options.resolution),
-                    raster_max_power,raster_min_power)
+                    raster_max_power,raster_min_power,layerParams.get('dir',self.options.raster_direction))
                 else:
                     inkex.errormsg("Will raster layer " + layer.get('id'))
                     gcode_raster += ";Rastering layer " + layer.get('id') + ': ' + label +  '\n'
