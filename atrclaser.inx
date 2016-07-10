@@ -38,9 +38,6 @@ minpower=number : laser intensity, 0-100. Only used when rastering, minimum inte
 maxpower=number : laser intensity, 0-100. Only used when rastering, maximum intensity.
   if maxpower and power exist in the same layer, maxpower will be used.
 feed=number: speed of cut
-line_type: Solid for perforated (s/p)
-lpwmm: Line Pulse Total Width in mm (default 2.54)
-lplmm: Line Pulse On Length in mm (default 1.5)
 dir=h,v,45 : direction of Base64 rastering
 repeat=number : How many times to cut, defaults to 1
 raster : Raster (images, objects and paths)
@@ -95,15 +92,8 @@ Tried and true values for different materials (40W CO2 laser)
 			
             <param name="Mfeed" type="int" min="1" max="9000" _gui-text="Default Traversal Feedrate:">5000</param>
 			
-            <param name="laser" type="int" min="0" max="100" _gui-text="Default Cut Laser Intensity (0-100%):">10</param>
+            <param name="laser" type="int" min="0" max="100" _gui-text="Default Laser Intensity (0-100%):">10</param>
 			
-            <param name="line_type" type="enum" gui-text="Cutting/Vector Line Type">
-				<_item value="s">Solid</_item>
-				<_item value="p">Pulsed/Perforated</_item>
-			</param>
-            <param name="lpwmm" type="float" precision="2" min="0.01" max="100" _gui-text="Default Pulse Width (0.01-100)mm:">2.54</param>
-            <param name="lplmm" type="float" precision="2" min="0.01" max="100" _gui-text="Default Pulse Length (0.01-100)mm:">1.5</param>
-
             <param name="homebefore" type="boolean" _gui-text="Home X and Y Before:">true</param>
 			
             <param name="homeafter" type="boolean" _gui-text="Home X and Y After:">true</param>
@@ -111,13 +101,21 @@ Tried and true values for different materials (40W CO2 laser)
 
         </page>
 			
-		<page name='tab' _gui-text='Raster Setup'>
+		<page name='tab' _gui-text='Rastering'>
             <param name="raster_method" type="enum" gui-text="Rastering method">
                 <_item value="base64">Base64 encoded (Marlin)</_item>
                 <_item value="gmoves">Individual gcode commands (GRBL)</_item>
                 
 <!--                 <_item value="#000000">Black</_item> -->
             </param>
+            <param name="raster_direction" type="enum" gui-text="Raster Line Direction">
+				<_item value="h">Horizontal (Standard)</_item>
+				<_item value="v">Vertical</_item>
+				<_item value="45">45 Degree (WIP)</_item>
+			</param>
+            <_param name="help" type="description">Only works with All Things RC marlin firmware and Base64 encoding. GRBL comming soon.</_param>
+            <param name="raster_45deg_adjust" type="boolean" gui-text="Adjust Resolution for 45deg Raster Line">true</param>
+            <_param name="help" type="description">Lines at 45deg will appear closer to each other than the Horizontal and vertial resolution. Selecting this option will adjust the DPI so that the 45deg line will be the correct distance apart.</_param>
             <param name="bg_color" type="enum" gui-text="Replace transparency with">
 				<_item value="#ffffff">White</_item>
 				<_item value="#000000">Black</_item>
@@ -137,6 +135,14 @@ Tried and true values for different materials (40W CO2 laser)
 			<!-- Päällekkäiset optiot --> 
 			<!-- <param name="m3commands" type="boolean" gui-text="Need M3 commands to turn laser on?">false</param> -->
 			
+			<param name="laser_min_value" type="int" min="1" max="100" gui-text="Laser minimum brightness">10</param>
+            <_param name="help" type="description">Override with minpower=xx in the layer name</_param>
+			
+			<param name="laser_max_value" type="int" min="1" max="100" gui-text="Laser maximum brightness">50</param>
+            <_param name="help" type="description">Override with maxpower=xx in the layer name</_param>
+			
+			<param name="greyscale_depth" type="int" min="2" max="100" gui-text="Number of shades of gray to use (0-100, recommended: 10):">12</param>
+			
 			<param name="white_cutoff" type="int" min="0" max="255" gui-text="Always turn off laser for pixels this bright (0-255):">254</param>
             
             <param name="dummylength" type="int" min="0" max="20" gui-text="Length of dummy ac/deceleration moves, in mm:">8</param>
@@ -146,37 +152,6 @@ Tried and true values for different materials (40W CO2 laser)
 Normally GRBL plans only ~10 commands ahead (due to memory constraints). In rastering, moves can be so short that GRBL cannot see far enough in to the future to be able to safely accelerate to the full feed rate, causing burn quality to vary unpredictably. This option convinces GRBL to go at full speed on commands that have specifically been marked for it. This option requires a dummy move on both sides of the rastered object for safe acceleration and deceleration. If your firmware does not support this option, you can still use the dummy moves alone for avoiding overburning at the edges of the raster. The default 8mm is for a feed rate of 5000 and acceleration of 400mm/s^2</_param>-->
            
         </page>
-		<page name='tab' _gui-text='Marlin Settings'>
-            <param name="raster_direction" type="enum" gui-text="Raster Line Direction">
-				<_item value="h">Horizontal (Standard)</_item>
-				<_item value="v">Vertical</_item>
-				<_item value="45">45 Degree (WIP)</_item>
-			</param>
-            <_param name="fullhelp" type="description">Override with dir=h,v,45 in the layer name. Only works with All Things RC marlin firmware and Base64 encoding. GRBL comming soon.</_param>
-            <param name="raster_45deg_adjust" type="boolean" gui-text="Adjust Resolution for 45deg Raster Line">true</param>
-            <_param name="fullhelp" type="description">Lines at 45deg will appear closer to each other than the Horizontal and vertial resolution. Selecting this option will adjust the DPI so that the 45deg line will be the correct distance apart.</_param>
-            <param name="raster_grayscale" type="enum" gui-text="Raster Grayscale">
-				<_item value="g">Grayscale</_item>
-				<_item value="d">Dithered</_item>
-				<_item value="l">lineart</_item>
-			</param>
-            <_param name="help" type="description">---------------------------------
-Dithered/Lineart</_param>
-			<!--<param name="dl_power" type="int" min="1" max="255" gui-text="Laser power for dithered and Lineart (1-100):">100</param>-->
-            <_param name="fullhelp" type="description">Dithering and Lineart have only two laser states, On and Off. Power can be set on the 'Raster Setup' tab or using the power=xx parameter in the layer name.</_param>
-            <_param name="help" type="description">---------------------------------
-Grayscale</_param>
-			<param name="laser_min_value" type="int" min="1" max="100" gui-text="Laser minimum brightness">10</param>
-            <_param name="help" type="description">Override with minpower=xx in the layer name</_param>
-			
-			<param name="laser_max_value" type="int" min="1" max="100" gui-text="Laser maximum brightness">50</param>
-            <_param name="help" type="description">Override with maxpower=xx in the layer name</_param>
-			
-			<param name="greyscale_depth" type="int" min="1" max="100" gui-text="Number of shades of gray to use (1-100, recommended: 10):">1</param>
-            <_param name="help" type="description">1 disables the reduction and uses full 256 grayscale</_param>
-        </page>
-		<!--<page name='tab' _gui-text='GRBL Settings'>
-        </page>-->
     </param>    
 </inkscape-extension>
 

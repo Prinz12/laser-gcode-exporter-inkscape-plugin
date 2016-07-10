@@ -7,7 +7,7 @@ Added repeat layer parameter for repeating each cut int times
     TODO: For super optimal paths, repeat every other time in opposite direction?
 
 
-All Things RC Laser Exporter
+Turnkey/All Things RC Laser Exporter
 
 -----------------------------------
 Modified by Mayhem2408 (John Revil) (https://github.com/mayhem2408/laser-gcode-exporter-inkscape-plugin)
@@ -19,8 +19,7 @@ Based on a script by Nick Drobchenko from the CNC club
 
 ***
 
-Copyright (C) 2016 John Revill, jrevill@optusnet.com.au
-Parts are Copyright (C) 2009 Nick Drobchenko, nick@cnc-club.ru
+Copyright (C) 2009 Nick Drobchenko, nick@cnc-club.ru
 based on gcode.py (C) 2007 hugomatic... 
 based on addnodes.py (C) 2005,2007 Aaron Spike, aaron@ekips.org
 based on dots.py (C) 2005 Aaron Spike, aaron@ekips.org
@@ -72,8 +71,6 @@ from io import BytesIO
 import png
 import base64
 import random
-
-from PIL import Image
 
 ################################################################################
 ###
@@ -486,14 +483,6 @@ class Gcode_tools(inkex.Effect):
                                      help="Default Cut Feed rate in unit/min")
         self.OptionParser.add_option("-l", "--laser", action="store", type="int", dest="laser", default="10",
                                      help="Default Laser intensity (0-100 %)")
-
-        self.OptionParser.add_option("", "--line_type", action="store", type="string", dest="line_type", default="s",
-                                     help="Default Line type (Solid/Pulsed)")
-        self.OptionParser.add_option("", "--lpwmm", action="store", type="float", dest="lpwmm", default="2.54",
-                                     help="Default Pulse Width (0.01-100)mm")
-        self.OptionParser.add_option("", "--lplmm", action="store", type="float", dest="lplmm", default="1.5",
-                                     help="Default Pulse Length (0.01-100)mm")
-
         self.OptionParser.add_option("-b", "--homebefore", action="store", type="inkbool", dest="homebefore",
                                      default=True, help="Home all before starting (G28)")
         self.OptionParser.add_option("-a", "--homeafter", action="store", type="inkbool", dest="homeafter",
@@ -533,10 +522,6 @@ class Gcode_tools(inkex.Effect):
                                      default="h", help="")
         self.OptionParser.add_option("", "--raster_45deg_adjust", action="store", type="inkbool", dest="raster_45deg_adjust",
                                      default="True", help="")
-        self.OptionParser.add_option("", "--raster_grayscale", action="store", type="string", dest="raster_grayscale",
-                                     default="g", help="")
-        self.OptionParser.add_option("", "--dl_power", action="store", type="int", dest="dl_power", default="100",
-                                     help="")
         self.OptionParser.add_option("", "--resolution", action="store", type="int", dest="resolution", default="5",
                                      help="")
 
@@ -745,23 +730,15 @@ class Gcode_tools(inkex.Effect):
         current_file = self.args[-1]
         
         exported_png = os.path.join(self.options.directory, 'laser_temp.png') #self.getTmpPath() + "laser_temp.png"
-        exported1_png = os.path.join(self.options.directory, 'laser_temp_id%s.png' %(id))
         raster_gcode += '; ' + exported_png + "\n"
         command = "inkscape \"%s\" -i \"%s\" -j -b\"%s\" -C --export-png=\"%s\" -d %s" % (
             current_file, id, self.options.bg_color, exported_png, DPI)
         # command="inkscape -C -e \"%s\" -b\"%s\" %s -d %s" % (exported_png, bg_color, current_file, DPI)
-        command1 = "inkscape \"%s\" -i \"%s\" -j -b\"%s\" -C --export-png=\"%s\" -d %s" % (
-            current_file, id, self.options.bg_color, exported1_png, DPI)
 
         p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return_code = p.wait()
         f = p.stdout
         err = p.stderr
-
-        p1 = subprocess.Popen(command1, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return_code = p1.wait()
-        f = p1.stdout
-        err = p1.stderr
 
         ######## Open the image that was exported with Inkscape
         reader = png.Reader(exported_png)
@@ -800,8 +777,7 @@ class Gcode_tools(inkex.Effect):
         elif self.options.homing == 2:
             raster_gcode += '$H; home all axes\n'
         elif self.options.homing == 3:
-            #raster_gcode += 'G00 X0 Y0 ;Returning to origin\n'
-            raster_gcode += ('G00 X0 Y0 F%s ;Returning to origin\n' % F_G00)
+            raster_gcode += 'G00 X0 Y0; Returning to origin\n'
         else:
             pass
         raster_gcode += 'G21; Set units to millimeters\n'
@@ -933,30 +909,19 @@ class Gcode_tools(inkex.Effect):
 
     # Make raster gcode that burns an area in greyscale. base64 makes file transfer efficient.
     # TODO: Please note that this function is not quite ready yet, and does not produce good gcode.
-    def Rasterbase64(self, id, rasterspeed=None, resolution=None, max_power=None, min_power=None, raster_dir=None, dl_power=None):
+    def Rasterbase64(self, id, rasterspeed=None, resolution=None, max_power=None, min_power=None, raster_dir=None):
         raster_gcode = ''
         if rasterspeed==None:
             rasterspeed = self.options.rasterspeed
         if resolution==None or resolution <= 0:
-            resolution = self.options.resolution
+            resolution = self.options.resolution    
         if max_power==None or max_power <= 0:
-            max_power = self.options.laser_max_value
+            max_power = self.options.laser_max_value    
         if min_power==None or min_power < 0:
-            min_power = self.options.laser_min_value
+            min_power = self.options.laser_min_value    
         if raster_dir==None:
             raster_dir = self.options.raster_direction
         raster_dir = str(raster_dir)
-        if dl_power==None or dl_power < 0:
-            dl_power = self.options.dl_power
-
-        if (self.options.raster_grayscale == 'l'):
-            gs_depth = int(2)
-        else:
-            gs_depth = int(self.options.greyscale_depth)
-        F_G01 = rasterspeed
-        F_G00 = self.options.Mfeed
-        scale = resolution 
-
         # TODO: What options should be accepted from the layer name parsing?
         
         
@@ -976,23 +941,9 @@ class Gcode_tools(inkex.Effect):
             raster_gcode += '; Resolution has been optimised for 45deg rastering\n'
 
         if (self.options.optires == True):
-            # =1/(ROUND((1/J34)/(H10/H6),0)*H$11)
-            # =1/(ROUND((1/UserResolution)/(DistancePerRev/StepsPerRev),0)*DistancePerStep)
-
-            #inkex.errormsg("self.options.stepperrev: %s" % self.options.stepperrev)
-            #inkex.errormsg("self.options.steppermicro: %s" % self.options.steppermicro)
-            #inkex.errormsg("self.options.pulleyteeth: %s" % self.options.pulleyteeth)
-            #inkex.errormsg("self.options.pulleypitch: %s" % self.options.pulleypitch)
-            #inkex.errormsg("resolution: %s" % resolution)
-
             stepsperrev = float(self.options.stepperrev * self.options.steppermicro)
             distperrev = float(self.options.pulleyteeth * self.options.pulleypitch)
             distperstep = float(float(distperrev) / float(stepsperrev))
-
-            #inkex.errormsg("stepsperrev: %s" % stepsperrev)
-            #inkex.errormsg("distperrev: %s" % distperrev)
-            #inkex.errormsg("distperstep: %s" % distperstep)
-
             resolution = 1.0 / (round((1.0 / resolution) / ((distperrev) / (stepsperrev)),0) * distperstep)
             scale = resolution
             DPI = resolution * 25.4
@@ -1014,7 +965,6 @@ class Gcode_tools(inkex.Effect):
         current_file = self.args[-1]
         # exported_png = self.getTmpPath() + "laser_temp.png"
         exported_png = os.path.join(self.options.directory, 'laser_temp.png')
-        exported1_png = os.path.join(self.options.directory, 'laser_temp_id_%s.png' %(id))
         raster_gcode += '; ' + exported_png + "\n"
         command = "inkscape \"%s\" -i \"%s\" -j -b\"%s\" -C --export-png=\"%s\" -d %s" % (
             current_file, id, self.options.bg_color, exported_png, DPI)
@@ -1025,21 +975,12 @@ class Gcode_tools(inkex.Effect):
         f = p.stdout
         err = p.stderr
 
-        if (self.options.raster_grayscale == 'd'):
-            ditheredimg = Image.open(exported_png)
-            ditheredimg = ditheredimg.convert('1')
-            ditheredimg = ditheredimg.convert('RGB')
-            ditheredimg.save(exported_png, 'PNG' )
-
         ######## Open the image that was exported with Inkscape
         reader = png.Reader(exported_png)
         w, h, pixels, metadata = reader.read_flat()
         
         #inkex.errormsg(str(metadata))
-        #def changerange(oldvalue,oldmin,oldmax,newmin,newmax):
-            #oldrange = oldmax-oldman
-            #newrange = newmax-newmin
-            #return (((oldvalue-oldmin)*newrange)/oldrange)+newmin
+
         def changerange256(oldvalue,newmin,newmax):
             newrange = newmax-newmin
             newvalue = int(((oldvalue*newrange)/255)+newmin)
@@ -1049,7 +990,6 @@ class Gcode_tools(inkex.Effect):
 
         ######## Make an array containing the image in greyscale
         # if direction is Horizontal or 45deg
-        #if self.options.raster_direction != 'V':
         if raster_dir != 'v':
             gray_array = [[255 for i in range(w)] for j in range(h)]
             tmp_array = [[0 for i in range(w)] for j in range(h)]
@@ -1071,14 +1011,11 @@ class Gcode_tools(inkex.Effect):
                     else:
                         reduced = avg
                     tmp_array[y_tmp][x] = reduced # Export a grayscale PNG based on this array
-                    #tmp_array[y_tmp][x] = int(changerange256(tmp_array[y_tmp][x],min_power*2.55,255)) # Export a grayscale PNG based on this 
                     # Make mid range pixels lighter
                     #=($E$2*255*A1+(1-$E$2)*POWER(A1,$E$1))/255
                     # gray_array[y][x] = (avg**2)/255 # Too much?
-                    #mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
-                    mod = 0.05 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
+                    mod = 0.5 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
                     gray_array[y_tmp][x] = int((mod*255*reduced + (1-mod)*(reduced**2))/255)
-                    #gray_array[y_tmp][x] = int(changerange256(gray_array[y_tmp][x],min_power*2.55,255))
 
         # if Vertical
         else:
@@ -1093,14 +1030,11 @@ class Gcode_tools(inkex.Effect):
                 for x in range(w):
                     pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
                     # Convert to grayscale using a method that simulates human vision, and flip value around
-                    #avg = 255 -(int(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07))
                     avg = 255 -(round(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07,0))
                     # Reduce color depth
                     # reduced = int((int((avg/(float(256)/100)))) * (float(255) / (100 -1)))
                     if (gs_depth > 1):
                         reduced = int(int(avg/(256.0/gs_depth))*(255.0/(gs_depth-1)))
-                        #if (reduced > 100):
-                            #inkex.errormsg('x:%s, y:%s, avg:%s, r: %s, int:%s, float: %s' %(x,y,avg,reduced,int(avg/(256.0/gs_depth)),(avg/(256.0/gs_depth))))
                     else:
                         reduced = avg
                     tmp_array[x][y_tmp] = reduced # Export a grayscale PNG based on this array
@@ -1108,14 +1042,12 @@ class Gcode_tools(inkex.Effect):
                     # Make mid range pixels lighter
                     #=($E$2*255*A1+(1-$E$2)*POWER(A1,$E$1))/255
                     # gray_array[y][x] = (avg**2)/255 # Too much?
-                    #mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
-                    mod = 0.05 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
+                    mod = 0.5 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
                     gray_array[x][y_tmp] = int((mod*255*reduced + (1-mod)*(reduced**2))/255)
                     #gray_array[x][y_tmp] = int(changerange256(gray_array[y_tmp][x],min_power*2.55,255))
         
         # Make preview png file
         png.from_array(tmp_array,'L').save(exported_png)
-        png.from_array(tmp_array,'L').save(exported1_png)
         
         
         #inkex.errormsg(reduced)
@@ -1135,7 +1067,6 @@ class Gcode_tools(inkex.Effect):
         elif self.options.homing == 2:
             raster_gcode += '$H; home all axes\n'
         elif self.options.homing == 3:
-            #raster_gcode += 'G00 X0 Y0 ;Returning to origin\n'
             raster_gcode += ('G00 X0 Y0 F%s ;Returning to origin\n' % F_G00)
         else:
             pass
@@ -1203,10 +1134,6 @@ class Gcode_tools(inkex.Effect):
             first=True
             d = get_chunks(data)
             # Go to beginning of raster line
-            #if di >0:
-            #    fromx -= 1
-            ##if di <1:
-            ##    fromx += 1
             output += G0(fromx,y,"slow","Line n.%s" % y)
             output += 'M649 S'+str(max_power)+' B2 D0 R'+str(pixelsize)+'\n'
             for dat in d:
@@ -1231,11 +1158,6 @@ class Gcode_tools(inkex.Effect):
             first=True
             d = get_chunks(data)
             # Go to beginning of raster line
-            #if di >0:
-            #    fromy -= 1
-            ##if di <1:
-            ##    fromy += 1
-            # output += G0(x,fromy,"fast","Row n.%s blank space fast move" % y)
             output += G0(x,fromy,"slow","Row n.%s" % y)
             output += 'M649 S'+str(max_power)+' B2 D0 R'+str(pixelsize)+'\n'
             for dat in d:
@@ -1268,11 +1190,7 @@ class Gcode_tools(inkex.Effect):
             pixelsize45 = float(pixelsize) * math.sqrt(2)
             if self.options.raster_45deg_adjust == True:
                 pixelsize45 = pixelsize45 * math.sqrt(2)
-                #fromx45 = fromx45 * math.sqrt(2)
-                #fromy45 = fromy45 * math.sqrt(2)
-            #output += G0(fromx45,fromy45,"slow","Row n.%s" % i)
 
-            #output += 'M649 S'+str(max_power)+' B2 D0 R%.5f\n' % (pixelsize45)
 
             # new method. Fast move to the start or the data and use m649 to set the feedspeed of the raster
             
@@ -1302,7 +1220,6 @@ class Gcode_tools(inkex.Effect):
         startx=0
         whitepixels = 0
 
-        #if (self.options.raster_direction != '45'):
         if (raster_dir != '45'):
             while y < len(gray_array):
                 if y % 2 == 0:  # Back and forth motion, start by going right
@@ -1334,7 +1251,6 @@ class Gcode_tools(inkex.Effect):
                             
                             data = rescale(data,min_power,max_power)
                             
-                            #if self.options.raster_direction == "V":
                             if raster_dir == "v":
                                 raster_gcode += rastertoV(startx,endx,y,data,3) # 3 = direction: Vertical away from Origin
                             else:
@@ -1371,7 +1287,6 @@ class Gcode_tools(inkex.Effect):
                             data = rescale(data,min_power,max_power)
 
                             data.reverse()
-                            #if self.options.raster_direction == "V":
                             if raster_dir == "v":
                                 raster_gcode += rastertoV(startx,endx,y,data,2) # 2 = direction: Vertical towards Origin
                             else:
@@ -1383,178 +1298,16 @@ class Gcode_tools(inkex.Effect):
               
                 # At the end of the row, move down by one pixel
                 y += 1
-        else: #45 degree stuff
-            # Using a grid with index points around he edge. eg in a 5x4 grid
-            #  0   1   2   3   4    5
-            # 0+---+---+---+---+---+
-            #  !   !   !   !   !   !
-            # 1+---+---+---+---+---+6
-            #  !   !   !   !   !   !
-            # 2+---+---+---+---+---+7
-            #  !   !   !   !   !   !
-            # 3+---+---+---+---+---+8
-            #  !   !   !   !   !   !
-            # 4+---+---+---+---+---+
-            #      5   6   7   8    9
+        #else:  #45 degree stuff Comming but not ready yet.
 
-            #  0     1     2 
-            # 0+-----+-----+-
-            #  !    /!    /! 
-            #  !  /  !  /  ! 
-            #  !/    !/    ! 
-            # 1+-----+-----+-
-            #  !    /!     ! 
-            #  !  /  !     ! 
-            #  !/    !     ! 
-            # 2+-----+-----+-
-            #  !     !     ! 
-            # 3+-----+-----+-
-            #  !     !     ! 
-            # 4+-----+-----+-
-            #        5     6 
-            # Diagonal lines will always run from the same index number on group
-
-            # the modified marlin firmware, Direction 4 goes -x +y direction and direction 5 foes +x -y
-            
-            i = 1 # i is index
-            # len(gray_array) is length of Y or Height, len(gray_array[0]) is length of X or width
-            w = len(gray_array[0])
-            h = len(gray_array)
-            #inkex.errormsg("w:%s" % (w))
-            #inkex.errormsg("h:%s" % (h))
-            #inkex.errormsg("w+h:%s" % (w+h))
-
-            #whitespace = int(5.0 * scale)
-            #whitespace = int(self.options.dummylength * scale)
-            whitespace = 10
-            while i < (w+h) : 
-                
-                # Get X and Y cordinated for X along the Origin line and Y furthest from the origin
-                if i < w:
-                    x1 = i
-                    y1 = 0
-                    px1 = x1-1
-                    py1 = 0
-                else:
-                    x1 = w
-                    y1 = i-w
-                    px1 = x1-1
-                    py1 = y1-1
-                # Get X and Y cordinated for X furthest from the Origin and Y along the origin line
-                if i < h:
-                    x2 = 0
-                    y2 = i
-                    px2 = 0
-                    py2 = y2-1
-                else:
-                    x2 = i-h
-                    y2 = h
-                    px2 = x2
-                    py2 = y2-1
-                # Calculate the length on the line in pixels at the given index
-                diag_length = min(w,h,(w+h)-i,i)
-
-                # Define and fill the array containing the diagonal data.
-                diag_array = []
-                for k in range(diag_length):
-                    diag_array.append(0)                
-                
-                # Set Start and End coorinates
-                if ((i-1) % 2) == 0: # start with Direction 4 -X +Y
-                    first_pix_x = px1 # first_pix is the starting pixel in the gray_array
-                    first_pix_y = py1
-                    start_cord_x = x1 # start_cord is the starting coordinate on the engraver 
-                    start_cord_y = y1 #
-                else: # start location for direction +X -Y
-                    first_pix_x = px2
-                    first_pix_y = py2
-                    start_cord_x = x2
-                    start_cord_y = y2
-
-                #START OF NEW CODE
-                j = 0
-                whitecount = 0
-                while j < diag_length:
-                    if ((i-1) % 2) == 0: # start with Direction 4 -X +Y
-                        diag_array[j] = gray_array[first_pix_y+j][first_pix_x-j]
-                    else:
-                        diag_array[j] = gray_array[first_pix_y-j][first_pix_x+j]
-                    j += 1
-
-                # At this point we now have the starting point X, Y and the data for the line
-
-                # Now lets start scanning the data and flag the first none blank pixel we find 
-                first_burn = 0 #diag_length-1
-                #inkex.errormsg("diag_length:%s" % diag_length)
-                j = 0
-                indata = False # this is set to true once a none blank is found and is set back to false one a section has been coded
-                while j < diag_length:
-                    #if diag_length == 100:
-                        #inkex.errormsg("[%s] = %s" % (j,diag_array[j]))
-                    if diag_array[j] > (255-self.options.white_cutoff):
-                        if indata == False:
-                            first_burn = j
-                            indata = True
-                        whitecount = 0
-                            #j = diag_length
-                    else:
-                        whitecount += 1
-                        
-                    if indata == True:
-                        if (whitecount > (whitespace*2)) or (j >= (diag_length-1)):
-                            # we have a valid chunk to write out, now pad and start and end for accelleration and encode items
-                            first_burn = max(0, first_burn-whitespace) # take first pixel 2 pixels back from the start, but not less than 0
-                            if j >= (diag_length-1):
-                                #last_burn = diag_length-1
-                                last_burn = (diag_length-1) - (whitecount-whitespace) + 1
-                                last_burn = min(last_burn,diag_length-1)
-                            else:
-                                last_burn = min(diag_length-1, j-whitespace) # take last pixel 2 pixels back from the end, but not greater than the max
-
-                            if ((i-1)%2) == 0:
-                                new_start_cord_x = start_cord_x - first_burn
-                                new_start_cord_y = start_cord_y + first_burn
-                                new_end_cord_x = start_cord_x - last_burn #- 1
-                                new_end_cord_y = start_cord_y + last_burn #+ 1
-                            else:
-                                new_start_cord_x = start_cord_x + first_burn
-                                new_start_cord_y = start_cord_y - first_burn
-                                new_end_cord_x = start_cord_x + last_burn #+ 1
-                                new_end_cord_y = start_cord_y - last_burn #- 1
-
-                            new_diag_length = (last_burn+1)-first_burn
-
-                            data = []
-                            for k in range(new_diag_length):
-                                data.append(0)                
-
-                            #new_diag_array = diag_array[first_burn:last_burn]
-                            k = 0
-                            while k < new_diag_length:
-                                data[k] = diag_array[k+first_burn]
-                                k += 1
-
-                            data = rescale(data,min_power,max_power)
-
-                            raster_gcode += rasterto45(new_start_cord_x, new_start_cord_y, data, i, 5-(i%2)) # 1= direction: right
-                            #raster_gcode += G0(new_end_cord_x,new_end_cord_y,"slow","Row end")
-                            raster_gcode += G1(new_end_cord_x,new_end_cord_y,"1")
-                            
-                            indata = False
-                            whitecount = 0
-                            
-                            
-                    j += 1
-                i += 1
-                #END OF NEW CODE
-        raster_gcode += 'M649 S0 B0 D0 P0\n' # Trying to turn off the laser
+        raster_gcode += 'M649 S0 B0 D0\n' # Trying to turn off the laser
         raster_gcode += 'M5\n'
         return raster_gcode
 
     
     
     # Generate gcode that follows svg paths
-    def generate_gcode(self, curve, laserPower, altfeed, altppm, repeat, line_type, lpwmm, lplmm):
+    def generate_gcode(self, curve, laserPower, altfeed, altppm, repeat):
         gcode = ''
 
         # Setup feed rate
@@ -1562,32 +1315,19 @@ class Gcode_tools(inkex.Effect):
 
         # Setup our pulse per millimetre option, if applicable
         # B: laser firing mode (0 = continuous, 1 = pulsed, 2 = raster)
-
-        if self.options.mainboard != "grbl":
-            if (line_type == "s"):
+        if (altppm):
             # Use the "alternative" ppm - L60000 is 60us
-                ppmValue = "B0 D0"
+            if self.options.mainboard == "grbl":
+                ppmValue = ""
             else:
-                inkex.errormsg("line_type:%s, lpwmm:%s, lplmm:%s, altfeed:%s" % (line_type, lpwmm, lplmm, altfeed))
-                ppm = 1.0/lpwmm
-                pdur = ((1.0/(altfeed/60))*lplmm) * 1000000
-                #ppmValue = "L60000 P%.2f B1 D0" % altppm
-                ppmValue = "L%.0f P%.4f B1 D0" % (pdur, ppm)
-        else:
-            ppmValue = ""
+                ppmValue = "L60000 P%.2f B1 D0" % altppm
 
-        #if (altppm):
-            ## Use the "alternative" ppm - L60000 is 60us
-            #if self.options.mainboard == "grbl":
-                #ppmValue = ""
-            #else:
-                #ppmValue = "L60000 P%.2f B1 D0" % altppm
-        #else:
-            ## Set the laser firing mode to continuous.
-            #if self.options.mainboard == "grbl":
-                #ppmValue = ""
-            #else:
-                #ppmValue = "B0 D0"
+        else:
+            # Set the laser firing mode to continuous.
+            if self.options.mainboard == "grbl":
+                ppmValue = ""
+            else:
+                ppmValue = "B0 D0"
 
         cwArc = "G2"
         ccwArc = "G3"
@@ -1860,10 +1600,7 @@ class Gcode_tools(inkex.Effect):
                         layerParams.get('power',self.options.laser), 
                         layerParams.get('feed',self.options.feed), 
                         layerParams.get('ppm',None), 
-                        layerParams.get('repeat',1),
-                        layerParams.get('line_type',self.options.line_type),
-                        layerParams.get('lpwmm',self.options.lpwmm),
-                        layerParams.get('lplmm',self.options.lplmm))
+                        layerParams.get('repeat',1) )
         
         # HOMING after everything has been cut
         if self.options.homeafter:
@@ -1920,9 +1657,9 @@ class Gcode_tools(inkex.Effect):
             return
 
         gcode = self.header
-        gcode += ";This gcode was generated with All Things RC Laser Exporter: \n"
+        gcode += ";This gcode was generated with Neckbeard/All Things RC Laser Exporter: \n"
         gcode += ";A powerful Inkscape extension that can make gcode for both cutting paths\n"
-        gcode += ";and rastering/engraving images. Brought to you by John Revill at All Things RC. \n"
+        gcode += ";and rastering/engraving images. Brought to you by John Revill and Lauri Niskanen. \n"
         # Save svg document name into gcode file so you'll know what the file contains
         try:
             SODIPODI_NAMESPACE = "http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
