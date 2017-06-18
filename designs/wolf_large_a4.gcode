@@ -3,8 +3,8 @@ G21 ; All units in mm
 ; Cut Feedrate 1400
 ; Move Feedrate 1400
 ; Laser Intensity 10 
-G28 ; home all
-
+;G28 ; home all
+G90 ; Absolute coorinate mode
 M5
 
 ;(************************************************************)

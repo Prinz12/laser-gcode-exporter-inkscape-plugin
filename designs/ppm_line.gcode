@@ -1,5 +1,5 @@
 G21 ; All units in mm
-
+G90
 ; Default Cut Feedrate 300 mm per minute
 ; Default Move Feedrate 2000 mm per minute
 ; Default Laser Intensity 72 percent

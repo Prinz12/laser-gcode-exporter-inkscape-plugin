@@ -106,7 +106,7 @@ SVG_LABEL_TAG = inkex.addNS("label", "inkscape")
 
 GCODE_EXTENSION = ".txt"
 raster_gcode = ""
-options = {}	
+options = {}
 AREA_WIDTH = 297 # The size of the cutting area
 AREA_HEIGHT = 210 # Assumed to be A4: Outside this area, intensity is set to <=100 
 #INTENSITY_CORRECTION = 0.25 # Maximum correction of laser intensity for the largest coordinate values , also affects feedrate modification
@@ -572,6 +572,8 @@ class Gcode_tools(inkex.Effect):
                                      default="False", help="")                             
         #self.OptionParser.add_option("", "--flip_y", action="store", type="inkbool", dest="flip_y",
                                      #default="True", help="")   
+        self.OptionParser.add_option("", "--m3commands", action="store", type="string", dest="m3commands",
+                                     default="M3", help="")
         self.OptionParser.add_option("", "--dummylength", action="store", type="int", dest="dummylength",
                                      default="5", help="")
         self.OptionParser.add_option("", "--autodummy", action="store", type="inkbool", dest="autodummy",
@@ -774,21 +776,33 @@ class Gcode_tools(inkex.Effect):
             gs_depth = int(self.options.greyscale_depth)
         F_G01 = rasterspeed
         F_G00 = self.options.Mfeed
-        scale = resolution 
 
-        xscanline = self.options.xscanline    
+        scale = resolution
 
-        DPI = resolution * 25.4 # resolution is actually pixels per mm
+        if (raster_dir == '45'):
+            xscanline = 1
+        else:
+            xscanline = self.options.xscanline
+
+        lineresolution = resolution
+        pixelresolution = resolution * xscanline
+		
+        DPI = pixelresolution * 25.4 # resolution is actually pixels per mm
         
         # Get dpi from resolution
         # resolution : default 11 : cuts per mm, size of pixel
         # Therefore size of pixel = 1/11 = 0.0909 mm
-        pixelsize = "{0:.5f}".format(1 / (float(DPI) / 25.4))
+        pixelsize = "{0:.5f}".format(1 / (float(pixelresolution)))
+        if (raster_dir == '45'):
+            pixelsize = float(pixelsize) * math.sqrt(2)
+            pixelsize45 = pixelsize # float(pixelsize) * math.sqrt(2)
 
         if (self.options.raster_45deg_adjust == True) and (raster_dir == '45'):
-            DPI = DPI / math.sqrt(2)
+            DPI = (lineresolution * 25.4) / math.sqrt(2)
             resolution = resolution / math.sqrt(2)
-            scale = resolution
+            lineresolution = lineresolution / math.sqrt(2)
+            pixelresolution = lineresolution / math.sqrt(2)
+            scale = lineresolution
             pixelsize = "{0:.5f}".format(1 / (float(DPI) / 25.4))
             raster_gcode += '; Resolution has been optimised for 45deg rastering\n'
 
@@ -812,10 +826,11 @@ class Gcode_tools(inkex.Effect):
             #inkex.errormsg("distperrev: %s" % distperrev)
             #inkex.errormsg("distperstep: %s" % distperstep)
 
-            resolution = 1.0 / (round((1.0 / resolution) / ((distperrev) / (stepsperrev)),0) * distperstep)
-            scale = resolution
-            DPI = resolution * 25.4
-            pixelsize = "{0:.5f}".format(1 / (float(DPI) / 25.4))
+            pixelresolution = 1.0 / (round((1.0 / pixelresolution) / ((distperrev) / (stepsperrev)),0) * distperstep)
+            lineresolution = 1.0 / (round((1.0 / lineresolution) / ((distperrev) / (stepsperrev)),0) * distperstep)
+            scale = lineresolution
+            DPI = pixelresolution * 25.4
+            pixelsize = "{0:.5f}".format(1 / (float(pixelresolution)))
             raster_gcode += '; Resolution has been optimised for stepper motor steps\n'
 
         #This extension assumes that your copy of Inkscape is running at 90dpi (it is by default)
@@ -828,9 +843,11 @@ class Gcode_tools(inkex.Effect):
         # pixelsize = 1 / (DPI / 25.4)
         #     = 0.09406 raster_mm_per_pulse
         
-        
-        raster_gcode += ';Line DPI: %s; That means %s lines per mm \n' %(DPI, resolution)
-        raster_gcode += ';Pixel DPI: %s; That means %s pixels per mm on each line\n' %(DPI * xscanline, resolution * xscanline)
+        xscanline = pixelresolution / lineresolution
+		
+        raster_gcode += ';Line DPI: %s; That means %s lines per mm \n' %(lineresolution * 25.4, lineresolution)
+        raster_gcode += ';Pixel DPI: %s; That means %s pixels per mm on each line\n' %(pixelresolution * 25.4, pixelresolution)
+        raster_gcode += ';Pixel DPI is %sx Line DPI\n' %(xscanline)
         current_file = self.args[-1]
         # exported_png = self.getTmpPath() + "laser_temp.png"
         exported_png = os.path.join(self.options.directory, 'laser_temp.png')
@@ -847,13 +864,13 @@ class Gcode_tools(inkex.Effect):
         
         imgresize = PIL.Image.open(exported_png)
         if raster_dir == 'h':
-            imgresize = imgresize.resize((imgresize.size[0], imgresize.size[1]/xscanline), PIL.Image.ANTIALIAS)
+            imgresize = imgresize.resize((imgresize.size[0], Int(imgresize.size[1]/xscanline)), PIL.Image.ANTIALIAS)
         else:
             if raster_dir == 'v': 
-                imgresize = imgresize.resize((imgresize.size[0]/xscanline, imgresize.size[1]), PIL.Image.ANTIALIAS)
+                imgresize = imgresize.resize((int(imgresize.size[0]/xscanline), imgresize.size[1]), PIL.Image.ANTIALIAS)
             else:
                 # TODO: Scanline resolution increaseing is not implemented in 45deg yet. Still working on the maths
-                imgresize = imgresize.resize((imgresize.size[0]/xscanline, imgresize.size[1]/xscanline), PIL.Image.ANTIALIAS)
+                imgresize = imgresize.resize((int(imgresize.size[0]/xscanline), int(imgresize.size[1]/xscanline)), PIL.Image.ANTIALIAS)
         
         imgresize.save(exported_png)
         
@@ -909,7 +926,7 @@ class Gcode_tools(inkex.Effect):
                 
         
         def nearestcolour(pixcolour,levels):
-            newcolour = 0
+            #newcolour = 0
             colourdiv = 255.0 / float(levels-1) # 255.0 / 8 = 31.875
             newcolour = int(int((float(pixcolour) / float(colourdiv))+0.5) * colourdiv)
             #inkex.errormsg('ret nc:%s' %(newcolour))
@@ -1332,8 +1349,15 @@ class Gcode_tools(inkex.Effect):
         startx=0
         whitepixels = 10
 
-        pixelsizel = float(pixelsize) / xscanline
-        raster_gcode += 'M649 S'+str(max_power)+' B2 D0 R'+str(pixelsizel)+'\n'
+        #pixelsizel = float(pixelsize) / xscanline
+        #raster_gcode += 'M649 S'+str(max_power)+' B2 D0 R'+str(pixelsizel)+'\n'
+
+        if (raster_dir == '45'):
+            pixelsizel = float(pixelsize) * math.sqrt(2)
+        else:
+            pixelsizel = pixelsize
+
+        raster_gcode += 'M649 S' + str(max_power) + ' B2 D0 R'+str(pixelsizel) + '\n'
 
         #if (self.options.raster_direction != '45'):
         inkex.errormsg("Acceleration Distance: %smm (%s pixels)" % (accel_length,accelspace))
@@ -1631,7 +1655,7 @@ class Gcode_tools(inkex.Effect):
         # Setup our pulse per millimetre option, if applicable
         # B: laser firing mode (0 = continuous, 1 = pulsed, 2 = raster)
 
-        if self.options.mainboard != "grbl":
+        if self.options.mainboard == "ramps":
             if (line_type == "s"):
             # Use the "alternative" ppm - L60000 is 60us
                 ppmValue = "B0 D0"
@@ -1758,8 +1782,12 @@ class Gcode_tools(inkex.Effect):
 
                     lg = 'G1'
         for rep in range(int(repeat)):
-            gcode += "; Repeat: %s" % int(rep + 1) + " of %s\n\n" % int(repeat)
-            gcode += newstuff
+            gcode += "\n; Repeat: %s" % int(rep + 1) + " of %s\n" % int(repeat)
+            if self.options.mainboard == "grbl":
+                gcode += self.options.m3commands + " S0" + "\n" + newstuff
+            else:
+                gcode += "M3 S0" + "\n" + newstuff
+
 
         # The end of the layer.
         if si[1] == 'end':
@@ -1924,7 +1952,7 @@ class Gcode_tools(inkex.Effect):
             elif layerParams.get('crosshatch', False):
                 # Raster by cross-hatching diagonally
                 inkex.errormsg("Will diagonally cross-hatch raster layer " + layer.get('id'))
-                gcode_raster += gccommentend + "Diagonally rastering layer " + layer.get('id') + ': ' + label + gccommentend + '\n'
+                gcode_raster += gccommentstart + "Diagonally rastering layer " + layer.get('id') + ': ' + label + gccommentend + '\n'
 
                 gcode_raster += self.Crosshatch(layer.get("id"), layerParams.get('feed',self.options.speed_ON), layerParams.get('resolution',self.options.resolution),
                 layerParams.get('power',self.options.laser_max_value))
@@ -1944,7 +1972,7 @@ class Gcode_tools(inkex.Effect):
                 # paths to be cut are now in pathlist
                 for objectData in pathList:
                     curve = self.parse_curve(objectData)
-                    gcode += gccommentend + "Cutting layer " + layer.get('id') + ': ' + label + gccommentend + '\n'
+                    gcode += gccommentstart + "Cutting layer " + layer.get('id') + ': ' + label + gccommentend + '\n'
                     gcode += self.generate_gcode(curve, 
                         layerParams.get('power',self.options.laser), 
                         layerParams.get('feed',self.options.feed), 
