@@ -40,7 +40,7 @@ minpower=number : laser intensity, 0-100. Only used when rastering, minimum inte
 maxpower=number : laser intensity, 0-100. Only used when rastering, maximum intensity.
   if maxpower and power exist in the same layer, maxpower will be used.
 feed=number: speed of cut
-line_type: Solid or perforated (s/p)
+line_type: Solid for perforated (s/p)
 lpwmm: Line Pulse Total Width in mm (default 2.54)
 lplmm: Line Pulse On Length in mm (default 1.5)
 dir=h,v,45 : direction of Base64 rastering
@@ -56,7 +56,7 @@ Tried and true values for different materials (40W CO2 laser)
         </page>
         <page name='tab' _gui-text='Machine Setup'>
             <param name="mainboard" type="enum" _gui-text="Mainboard/Controller: ">
-                <item value="ramps">Marlin Ramps 1.4</item>
+                <item value="marlin">Marlin + Ramps 1.4</item>
             </param>
             <!-- Homing -->
             <param name="homing" type="enum" gui-text="Homing ?">
@@ -112,7 +112,8 @@ Tried and true values for different materials (40W CO2 laser)
 			
 		<page name='tab' _gui-text='Raster Setup'>
             <param name="raster_method" type="enum" gui-text="Rastering method">
-                <_item value="base64">Base64 encoded (Marlin)</_item>
+                <_item value="base64">Base64 encoded (Marlin Only)</_item>
+                <_item value="gmoves">[DO NOT USE] Individual gcode commands (GRBL/Smoothie/UCCNC)</_item>
 
 <!--                 <_item value="#000000">Black</_item> -->
             </param>

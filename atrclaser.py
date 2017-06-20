@@ -520,7 +520,7 @@ class Gcode_tools(inkex.Effect):
                                      default="0.0005",
                                      help="All arc having radius less than minimum will be considered as straight line")
         self.OptionParser.add_option("", "--mainboard", action="store", type="string", dest="mainboard",
-                                     default="ramps", help="Mainboard")
+                                     default="marlin", help="Mainboard")
         self.OptionParser.add_option("", "--origin", action="store", type="string", dest="origin", default="topleft",
                                      help="Origin of the Y Axis")
 
@@ -734,12 +734,8 @@ class Gcode_tools(inkex.Effect):
     # Make raster gcode that burns an area in greyscale. base64 makes file transfer efficient.
     def Rasterbase64(self, id, rasterspeed=None, resolution=None, max_power=None, min_power=None, raster_dir=None, dl_power=None):
 
-        if (self.options.raster_method == 'gmoves_uccnc'):
-            gccommentstart = "( "
-            gccommentend = " )"
-        else:
-            gccommentstart = ";"
-            gccommentend = ""
+        gccommentstart = ";"
+        gccommentend = ""
 
         def gccomment(gc):
             if (self.options.gcodecomments): # remove gcode comments
@@ -1146,6 +1142,23 @@ class Gcode_tools(inkex.Effect):
         #def randomlength():
         #    return random.randint(35,51)
         def randomlength():
+            # random length is designed to prevent patterns from appearing in the image due
+            # consistant repetition.
+            # base64 turns 3 characters into 4.
+            # Base64 ABAA = Binary 000000 000001 000000 000000 
+            # converts to 00000000 00010000 00000000 or 0x00, 0x10, 0x00
+            # Base64 ABA= = Binary 000000 000001 000000 xxxxxx
+            # converts to 00000000 00010000 00xxxxxx or 0x00, 0x10
+            # Base64 AB== = Binary 000000 000001 xxxxxx xxxxxx
+            # converts to 00000000 0001xxxx xxxxxxxx or 0x00
+
+            # if you require 3 binary characters, you get 4 in return.
+            # if you only reuire 2 binary characts, you still get 4 in return, but the last
+            # character will be '=' representing 3-1 = 2 characters
+            # if you only require 1 binary character, you must still return 4 characters, but the last
+            # characters will be '==' representing 3-2 = 1 character.
+            # for your purpose, the = signs are wasted bytes so we need to limit the length to 
+            # multiples of 3 to revent the = signs and wasted bandwidth.
             chucksize = random.randint(13,17) * 3
             return chucksize
             
@@ -1214,7 +1227,6 @@ class Gcode_tools(inkex.Effect):
             # pixel = 0.09406 # Height of a pixel / row in raster image //TODO: Make option and calculate the correct export dpi automatically
             first=True
             d = get_chunks(data)
-
 
             # Work around: Correct the Half delay/pixel shift that occurs in the Marlin firmware.
             if di == 0:
@@ -1655,7 +1667,7 @@ class Gcode_tools(inkex.Effect):
         # Setup our pulse per millimetre option, if applicable
         # B: laser firing mode (0 = continuous, 1 = pulsed, 2 = raster)
 
-        if self.options.mainboard == "ramps":
+        if self.options.mainboard == "marlin":
             if (line_type == "s"):
             # Use the "alternative" ppm - L60000 is 60us
                 ppmValue = "B0 D0"
@@ -1706,7 +1718,10 @@ class Gcode_tools(inkex.Effect):
                 # if lg != "G0":
                 #    gcode += LASER_OFF + "\n"
 
+                # Disarm laser before a G0 Move (Not needed for GRBL in laser mode or MK4Duo in Laser mode
+                newstuff += laserdisablecmd + "\n"
                 newstuff += "G0 " + self.make_args(si[0]) + " F%i " % self.options.Mfeed + "\n"
+                newstuff += laserenablecmd + "\n"
                 lg = 'G0'
 
             elif s[1] == 'end':
@@ -1821,12 +1836,8 @@ class Gcode_tools(inkex.Effect):
 
 
     def effect_curve(self):
-        if (self.options.raster_method == 'gmoves_uccnc'):
-            gccommentstart = "( "
-            gccommentend = " )"
-        else:
-            gccommentstart = ";"
-            gccommentend = ""
+        gccommentstart = ";"
+        gccommentend = ""
 
         def gccomment(gc):
             if (self.options.gcodecomments): # remove gcode comments
@@ -1936,15 +1947,15 @@ class Gcode_tools(inkex.Effect):
                 raster_max_power = layerParams.get('power',self.options.laser_max_value)
                 raster_max_power = layerParams.get('maxpower',raster_max_power)
                 raster_min_power = layerParams.get('minpower',self.options.laser_min_value)
-                if self.options.raster_method == "base64":
+                if (self.options.raster_method == "base64") and (self.options.mainboard == "marlin"):
                     inkex.errormsg("Will raster layer " + layer.get('id') + " using base64 encoding.")
-                    gcode_raster += gccommentstart + "Rastering layer " + layer.get('id') + ': ' + label + gccommentend + '\n'
+                    gcode_raster += gccommentstart + "Rastering layer " + layer.get('id') + ': ' + label + gccommentend + ' using base64 encoding\n'
 
                     gcode_raster += self.Rasterbase64(layer.get("id"), layerParams.get('feed',self.options.speed_ON), layerParams.get('resolution',self.options.resolution),
                     raster_max_power,raster_min_power,layerParams.get('dir',self.options.raster_direction))
                 else:
-                    inkex.errormsg("Will raster layer " + layer.get('id'))
-                    gcode_raster += gccommentstart + "Rastering layer " + layer.get('id') + ': ' + label + gccommentend + '\n'
+                    inkex.errormsg("Will raster layer " + layer.get('id') + " using indivdual gcodes.")
+                    gcode_raster += gccommentstart + "Rastering layer " + layer.get('id') + ': ' + label + gccommentend + ' using individual gcodes\n'
 
                     gcode_raster += self.Raster(layer.get("id"), layerParams.get('feed',self.options.speed_ON), layerParams.get('resolution',self.options.resolution),
                     raster_max_power,raster_min_power)
@@ -2002,6 +2013,15 @@ class Gcode_tools(inkex.Effect):
         options = self.options
         #selected = self.selected.values()
 
+        global laserenablecmd
+        global laseroffcmd
+        global laserpwrcmd
+        global laserdisablecmd
+        global laser_combine_move_and_power
+        global gccommentstart
+        global gccommentend
+
+		
         root = self.document.getroot()
         # TODO: This does not seem to affect anything? Maybe used to be useful for the old rastering method?
         # See if the user has the document setup in mm or pixels.
@@ -2036,7 +2056,41 @@ class Gcode_tools(inkex.Effect):
         if (not dirExists):
             return
 
-        if (self.options.raster_method == 'gmoves_uccnc'):
+        # TODO: Working on a number of different controller types. 
+        #<item value="marlin">Marlin + Ramps 1.4</item>
+        #<item value="grbl">GRBL 1.1</item>
+        #<item value="uccnc">UCCNC</item>
+        #<item value="smoothie">Smoothie</item>
+
+        if (self.options.mainboard == 'grbl'): #gcode for GRBL
+            laserenablecmd = self.options.m3commands
+            laseroffcmd = "S0"
+            laserpwrcmd = "S"
+            laserdisablecmd = "M5"
+            laser_combine_move_and_power = True
+            laser_G0_Burns = False
+        else:
+            if ((self.options.mainboard == 'smoothie') or (self.options.mainboard == 'marlin')): # gcode for Smoothie and Marlin. Same as GRBL but no support for M4 Laser mode.
+                laserenablecmd = "M3"
+                laseroffcmd = "S0"
+                laserpwrcmd = "S"
+                laserdisablecmd = "M5"
+                laser_combine_move_and_power = True
+                laser_G0_Burns = False
+            else:
+                if (self.options.mainboard == 'uccnc'): # gcode for UCCNC
+                    laserenablecmd = "M10"
+                    laseroffcmd = "Q0"
+                    laserpwrcmd = "Q"
+                    laserdisablecmd = "M11"
+                    laser_combine_move_and_power = False
+                    laser_G0_Burns = True
+
+        LASER_ON = laserenablecmd + " ;turn the laser on"  # LASER ON MCODE
+        LASER_OFF = laserdisablecmd + " ;turn the laser off\n"  # LASER OFF MCODE
+			
+			
+        if (self.options.mainboard == 'uccnc'):
             gccommentstart = "( "
             gccommentend = " )"
         else:
@@ -2072,28 +2126,31 @@ class Gcode_tools(inkex.Effect):
         except:
             pass
         # TODO: if statement that tells you what firmware this file is meant for.
-        if (self.options.raster_method == 'gmoves'):
-            gcode += gccommentstart + "This gcode is optimized for GRBL 1.1e in Laser mode and may fail on other firmwares." + gccommentend + "\n"
-        elif (self.options.raster_method == 'gmoves_uccnc'):
+        if (self.options.mainboard == 'grbl'):
+            gcode += gccommentstart + "This gcode is optimized for GRBL 1.1f in Laser mode only and may fail on other firmwares." + gccommentend + "\n"
+        elif (self.options.mainboard == 'uccnc'):
             gcode += gccommentstart + "This gcode is optimized for UCCNC laser cutters and may fail on other firmwares." + gccommentend + "\n"
-        elif (self.options.raster_method == 'gmoves_smoothie'):
+        elif (self.options.mainboard == 'smoothie'):
             gcode += gccommentstart + "This gcode is optimized for smoothieware CNC boards for Lasers and may fail on other firmwares." + gccommentend + "\n"
-        elif (self.options.raster_method == 'base64'):
+        elif (self.options.mainboard == 'marlin'):
             gcode += gccommentstart + "This gcode is optimized for Marlin with modifications for laser cutters and will fail on other firmwares." + gccommentend + "\n"
-        gcode += gccommentstart + "If your G-code sender application does not support GRBL special commands '$H for example' features like homing will fail." + gccommentend + "\n"
+        #gcode += gccommentstart + "If your G-code sender application does not support GRBL special commands '$H for example' features like homing will fail." + gccommentend + "\n"
         if (self.options.unit == "mm"):
             self.unitScale = 0.282222222222
-            if (self.options.raster_method <> 'gmoves_uccnc'):
-                gcode += "G21 ;All units in mm\n"
+            if (self.options.mainboard <> 'uccnc'):
+                gcode += "G21" + gccomment('All units in mm', True) 
         elif (self.options.unit == "in"):
             self.unitScale = 0.011111
-            if (self.options.raster_method <> 'gmoves_uccnc'):
-                gcode += "G20 ;All units in in\n"
+            if (self.options.mainboard <> 'uccnc'):
+                gcode += "G20" + gccomment('All units in inches', True)
         else:
             inkex.errormsg(("You must choose mm or in"))
             return
 
-        #gcode += "M80 ; Turn on Optional Peripherals Board at LMN\n"
+        gcode += 'G90' + gccomment('Use absolute coordinates', True)
+
+        if (self.options.mainboard == "marlin"):
+            gcode += 'M80' + gccomment('Turn on Optional Peripherals Board at LMN', True)
 
 
         # Put the header data in the gcode file
@@ -2131,7 +2188,7 @@ class Gcode_tools(inkex.Effect):
         if data:
             gcode += data
             gcode += "M5\n"
-            if (self.options.raster_method == "gmoves_uccnc"):
+            if (self.options.mainboard == "uccnc"):
                 gcode += "M11\n"
         # if (self.options.double_sided_cutting):
             # gcode += "\n\n;(MSG,Please flip over material)\n\n"
