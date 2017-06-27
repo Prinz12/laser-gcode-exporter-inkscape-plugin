@@ -84,8 +84,9 @@ VERSION = "1.0.2"
 
 STRAIGHT_TOLERANCE = 0.0001
 STRAIGHT_DISTANCE_TOLERANCE = 0.0001
-LASER_ON = "M3 ;turn the laser on"  # LASER ON MCODE
-LASER_OFF = "M5 ;turn the laser off\n"  # LASER OFF MCODE
+
+LASER_ON = ""
+LASER_OFF = ""
 
 HEADER_TEXT = ""
 FOOTER_TEXT = ""
@@ -734,9 +735,6 @@ class Gcode_tools(inkex.Effect):
     # Make raster gcode that burns an area in greyscale. base64 makes file transfer efficient.
     def Rasterbase64(self, id, rasterspeed=None, resolution=None, max_power=None, min_power=None, raster_dir=None, dl_power=None):
 
-        gccommentstart = ";"
-        gccommentend = ""
-
         def gccomment(gc):
             if (self.options.gcodecomments): # remove gcode comments
                 enablecomments = False
@@ -849,7 +847,8 @@ class Gcode_tools(inkex.Effect):
         exported_png = os.path.join(self.options.directory, 'laser_temp.png')
         raster_gcode += '; Exported PNG file: ' + exported_png + "\n"
         command = "inkscape \"%s\" -i \"%s\" -j -b\"%s\" -C --export-png=\"%s\" -d %s" % (
-            current_file, id, self.options.bg_color, exported_png, (DPI * xscanline))
+            current_file, id, self.options.bg_color, exported_png, (pixelresolution * 25.4))
+        #raster_gcode += '; CMD: ' + command + "\n"
         # command="inkscape -C -e \"%s\" -b\"%s\" %s -d %s" % (exported_png, bg_color, current_file, DPI)
         
         p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -1081,7 +1080,6 @@ class Gcode_tools(inkex.Effect):
 
         F_G01 = rasterspeed
         F_G00 = self.options.Mfeed
-        scale = resolution 
 
         # HOMING
         if self.options.homing == 1:
@@ -1093,10 +1091,10 @@ class Gcode_tools(inkex.Effect):
             raster_gcode += ('G00 X0 Y0 F%s ;Returning to origin\n' % F_G00)
         else:
             pass
-        raster_gcode += 'G21; Set units to millimeters\n'
-        raster_gcode += 'G90; Use absolute coordinates\n'
-        #raster_gcode += 'G92 X0 Y0; Coordinate Offset\n'
 
+		########## Pre and Post line acceleration spacing by John Revill
+        # Compacts Gcode by combining consecutive pixels with the same value into a single command.
+        
         # Converts grayscale range into laser intensity values suitable for the user's laser machine.
         def intensity(pix):
             # return "{0:.1f}".format(max_power - (((max_power - self.options.laser_min_value) * pix) / float(255)))
@@ -1121,7 +1119,7 @@ class Gcode_tools(inkex.Effect):
             return data_array
 
 
-        def G0(x,y,speed="fast",comment=""):
+        def G0(x,y,speed="fast",usescale=True,comment=""):
             g ="" #"M649 S0 B0 D0\n"
           
             if speed == "fast":
@@ -1131,7 +1129,11 @@ class Gcode_tools(inkex.Effect):
             # Tiny bit of randomness added to reduce patterns, hopefully
             speed = "{0:.1f}".format(self.feedratemod(x,y,x,y,speed)+ random.randint(-5,3))
             #return g + 'G0 X' + "{0:.3f}".format((float(x) / scale)) + ' Y' + "{0:.3f}".format(float(y) / scale) + ' F' + speed + '; ' + comment + '\n'
-            return g + 'G0 X' + "{0:.3f}".format((float(x) / scale)) + ' Y' + "{0:.3f}".format(float(y) / scale) + ' F' + speed + gccomment(comment)
+            if (usescale):
+                outstr = g + 'G0 X' + "{0:.3f}".format((float(x) / scale)) + ' Y' + "{0:.3f}".format(float(y) / scale) + ' F' + speed + gccomment(comment)
+            else:
+                outstr = g + 'G0 X' + "{0:.3f}".format(float(x)) + ' Y' + "{0:.3f}".format(float(y)) + ' F' + speed + gccomment(comment)
+            return outstr
         
         def G1(x,y,i=""):
             if i:
@@ -1169,7 +1171,7 @@ class Gcode_tools(inkex.Effect):
             # inkex.errormsg("Chunks: %s" % chunks)
             return chunks 
         
-        def rasterto(frompx, topx, xyline, data, di=1): # di = direction 1=right, 0=left, 3=positive (away from origin), 2=negative (towards origin)
+        def rasterto(from_px, to_px, line_px, data, di=1): # di = direction 1=right, 0=left, 3=vertical away from Origin, 2=vertical towards origin 
             # inkex.errormsg("Rasterto: %s-%s, %s, %s, %s" % (fromx, tox, y, data, len(data)))
             # Break down data on multiple lines if necessary
             output=""
@@ -1177,28 +1179,18 @@ class Gcode_tools(inkex.Effect):
             first=True
             d = get_chunks(data)
 
-
             # Work around: Correct the Half delay/pixel shift that occurs in the Marlin firmware.
-            if di == 0:
-                frompx += 1
-            elif di == 1:
-                frompx += 0
-            elif di == 2:
-                frompx += 1
-            elif di == 3:
-                frompx += 0
+            if (di == 0) or (di == 2):
+                from_px += 1
+            else:
+                from_px += 0
 
-            frompxs = frompx / xscanline
-            if di == 0 or di == 1:
-                output += G0(frompxs,xyline,"slow","Line n.%s" % xyline)
-                #output += 'M649 S'+str(max_power)+' B2 D0 R'+str(pixelsize)+'\n'
-            elif di == 2 or di == 3:
-                #output += G0(xy,fromys,"fast","Row n.%s blank space fast move" % xy)
-                output += G0(xyline,frompxs,"slow","Row n.%s" % xyline)
 
-            #pixelsizel = float(pixelsize) / xscanline
-            #output += 'M649 S'+str(max_power)+' B2 D0 R'+str(pixelsizel)+'\n'
-
+            if (di <=1): # Horizontal
+                output += G0(from_px/pixelresolution,line_px/lineresolution,"slow",False,"Line n.%s" % y)
+            else: # Vertical
+                output += G0(line_px/lineresolution,from_px/pixelresolution,"slow",False,"Line n.%s" % y)
+	    
             for dat in d:
 
                 #b64 = base64.b64encode("".join(chr(c) for c in dat),"99")
@@ -1212,10 +1204,10 @@ class Gcode_tools(inkex.Effect):
                     output += 'G7 L' +l+ ' D' + b64 + '\n'
 
             #if di == 0 or di == 1:
-                # output += G0(topx,xyline,"slow", "Raster data carrier") # G7 fills this move with raster data without this one the G0 that moves down a row gets the raster data.
+                # output += G0(from_px/pixelresolution,line_px/lineresolution,"slow",False,"Raster data carrier") # G7 fills this move with raster data without this one the G0 that moves down a row gets the raster data.
             #elif di == 2 or di == 3:
                 #output += G0(xyline,topx,"slow", "Raster data carrier") # G7 fills this move with raster data without this one the G0 that moves down a row gets the raster data.
-                ###output += G1(xyline,topx,"0") # G7 fills this move with raster data without this one the G0 that moves down a row gets the raster data.
+                ###output += G1(line_px/lineresolution,from_px/pixelresolution,"0") # G7 fills this move with raster data without this one the G0 that moves down a row gets the raster data.
 
             return output
 
@@ -1236,7 +1228,7 @@ class Gcode_tools(inkex.Effect):
 
             fromxs = fromx / xscale
 
-            output += G0(fromxs,y,"slow","Line n.%s" % y)
+            output += G0(fromxs,y,"slow",True,"Line n.%s" % y)
             #output += 'M649 S'+str(max_power)+' B2 D0 R'+str(pixelsize)+'\n'
             #pixelsizel = float(pixelsize) / xscale
             #output += 'M649 S'+str(max_power)+' B2 D0 R'+str(pixelsizel)+'\n'
@@ -1274,7 +1266,7 @@ class Gcode_tools(inkex.Effect):
 
             #output += G0(x,fromys,"fast","Row n.%s blank space fast move" % y)
 
-            output += G0(x,fromys,"slow","Row n.%s" % y)
+            output += G0(x,fromys,"slow",True,"Row n.%s" % y)
             #pixelsizel = float(pixelsize) / xscale
             #output += 'M649 S'+str(max_power)+' B2 D0 R'+str(pixelsizel)+'\n'
             for dat in d:
@@ -1321,7 +1313,7 @@ class Gcode_tools(inkex.Effect):
 
             # new method. Fast move to the start or the data and use m649 to set the feedspeed of the raster
             
-            output += G0(fromx45,fromy45,"fast","Row n.%s fast move" % i)
+            output += G0(fromx45,fromy45,"fast",True,"Row n.%s fast move" % i)
             speed = F_G01
             speed = "{0:.1f}".format(self.feedratemod(x,y,x,y,speed)+ random.randint(-5,3))
             #output += 'M649 S'+str(max_power)+' B2 D0 R%.5f' % (pixelsize45)
@@ -1836,8 +1828,6 @@ class Gcode_tools(inkex.Effect):
 
 
     def effect_curve(self):
-        gccommentstart = ";"
-        gccommentend = ""
 
         def gccomment(gc):
             if (self.options.gcodecomments): # remove gcode comments
@@ -2018,6 +2008,7 @@ class Gcode_tools(inkex.Effect):
         global laserpwrcmd
         global laserdisablecmd
         global laser_combine_move_and_power
+        global laser_G0_Burns
         global gccommentstart
         global gccommentend
 
@@ -2059,6 +2050,7 @@ class Gcode_tools(inkex.Effect):
         # TODO: Working on a number of different controller types. 
         #<item value="marlin">Marlin + Ramps 1.4</item>
         #<item value="grbl">GRBL 1.1</item>
+        #<item value="grbllpc">GRBL 1.1 on Smoothie</item>
         #<item value="uccnc">UCCNC</item>
         #<item value="smoothie">Smoothie</item>
 
@@ -2069,34 +2061,57 @@ class Gcode_tools(inkex.Effect):
             laserdisablecmd = "M5"
             laser_combine_move_and_power = True
             laser_G0_Burns = False
+            gccommentstart = ";"
+            gccommentend = ""
+            lasermaxpower = 1000
         else:
-            if ((self.options.mainboard == 'smoothie') or (self.options.mainboard == 'marlin')): # gcode for Smoothie and Marlin. Same as GRBL but no support for M4 Laser mode.
-                laserenablecmd = "M3"
+            if (self.options.mainboard == 'grbllpc'): # same as GRBL but with smoothie power range
+                laserenablecmd = self.options.m3commands
                 laseroffcmd = "S0"
                 laserpwrcmd = "S"
                 laserdisablecmd = "M5"
                 laser_combine_move_and_power = True
                 laser_G0_Burns = False
+                gccommentstart = ";"
+                gccommentend = ""
+                lasermaxpower = 1
             else:
-                if (self.options.mainboard == 'uccnc'): # gcode for UCCNC
-                    laserenablecmd = "M10"
-                    laseroffcmd = "Q0"
-                    laserpwrcmd = "Q"
-                    laserdisablecmd = "M11"
-                    laser_combine_move_and_power = False
-                    laser_G0_Burns = True
+                if (self.options.mainboard == 'smoothie'): # gcode for Smoothie and Marlin. Same as GRBL but no support for M4 Laser mode.
+                    laserenablecmd = "M3"
+                    laseroffcmd = "S0"
+                    laserpwrcmd = "S"
+                    laserdisablecmd = "M5"
+                    laser_combine_move_and_power = True
+                    laser_G0_Burns = False
+                    gccommentstart = ";"
+                    gccommentend = ""
+                    lasermaxpower = 1
+                else:
+                    if (self.options.mainboard == 'marlin'): # gcode for Smoothie and Marlin. Same as GRBL but no support for M4 Laser mode.
+                        laserenablecmd = "M3"
+                        laseroffcmd = "S0"
+                        laserpwrcmd = "S"
+                        laserdisablecmd = "M5"
+                        laser_combine_move_and_power = True
+                        laser_G0_Burns = False
+                        gccommentstart = ";"
+                        gccommentend = ""
+                        lasermaxpower = 100
+                    else:
+                        if (self.options.mainboard == 'uccnc'): # gcode for UCCNC
+                            laserenablecmd = "M10"
+                            laseroffcmd = "Q0"
+                            laserpwrcmd = "Q"
+                            laserdisablecmd = "M11"
+                            laser_combine_move_and_power = False
+                            laser_G0_Burns = True
+                            gccommentstart = "( "
+                            gccommentend = " )"
+                            lasermaxpower = 255
 
         LASER_ON = laserenablecmd + " ;turn the laser on"  # LASER ON MCODE
         LASER_OFF = laserdisablecmd + " ;turn the laser off\n"  # LASER OFF MCODE
 			
-			
-        if (self.options.mainboard == 'uccnc'):
-            gccommentstart = "( "
-            gccommentend = " )"
-        else:
-            gccommentstart = ";"
-            gccommentend = ""
-
         def gccomment(gc, enablecommentsoverride = False):
             if (self.options.gcodecomments): # remove gcode comments
                 enablecomments = enablecommentsoverride
@@ -2151,6 +2166,7 @@ class Gcode_tools(inkex.Effect):
 
         if (self.options.mainboard == "marlin"):
             gcode += 'M80' + gccomment('Turn on Optional Peripherals Board at LMN', True)
+            #gcode += 'M106 S255' + gccomment('Turn on blower fan at 100%', True)
 
 
         # Put the header data in the gcode file
@@ -2190,6 +2206,10 @@ class Gcode_tools(inkex.Effect):
             gcode += "M5\n"
             if (self.options.mainboard == "uccnc"):
                 gcode += "M11\n"
+            if (self.options.mainboard == "marlin"):
+                gcode += "M107 " + gccommentstart + "Turn off blower fan" + gccommentend + '\n'
+                gcode += "M03 S0.1 " + gccommentstart + "Set laser to dim alignment beam" + gccommentend + '\n'
+
         # if (self.options.double_sided_cutting):
             # gcode += "\n\n;(MSG,Please flip over material)\n\n"
             # # Include a tool change operation
