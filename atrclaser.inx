@@ -32,8 +32,8 @@ For example:
 power=10, feed=5000, repeat=2
 This would cut the layer twice at F5000 S10.
 
-maxpower=100,feed=1000,raster,dir=v
-This will engrave the layer at laser power 100% and feedrate of 1000mm/m or F1000 S100 in a vertical direction
+maxpower=100,feed=1000,raster,dir=v,grey=d
+This will engrave the layer at laser power 100% and feedrate of 1000mm/m or F1000 S100 in a vertical direction using dithering
 
 power=number : laser intensity, 0-100. When rastering, maximum intensity.
 minpower=number : laser intensity, 0-100. Only used when rastering, minimum intensity.
@@ -44,6 +44,7 @@ line_type: Solid for perforated (s/p)
 lpwmm: Line Pulse Total Width in mm (default 2.54)
 lplmm: Line Pulse On Length in mm (default 1.5)
 dir=h,v,45 : direction of Base64 rastering
+grey=g,d,l : Use Greyscale, Dithering or lineart for this layer
 repeat=number : How many times to cut, defaults to 1
 raster : Raster (images, objects and paths)
 resolution=number : How many lines per mm when rastering
@@ -90,7 +91,7 @@ Tried and true values for different materials (40W CO2 laser)
             <param name="directory" type="string" _gui-text="Directory: "></param>
             <_param name="help" type="description">(blank is your desktop)</_param>
 			
-            <param name="feed" type="int" min="1" max="9000" _gui-text="Default Cut Feedrate:">1500</param>
+            <param name="feed" type="int" min="1" max="8000" _gui-text="Default Cut Feedrate:">1500</param>
 			
             <param name="Mfeed" type="int" min="1" max="30000" _gui-text="Default Traversal Feedrate:">3000</param>
 			
@@ -120,15 +121,15 @@ Tried and true values for different materials (40W CO2 laser)
 
 
             <param name="burnwhite" type="boolean" _gui-text="Burn White Space:">true</param>
-            <_param name="help" type="description">Then true, white space will use G1 S0 instead of G0. Allows for smoother moves, but maybe slower. Will also create smaller gcode as consecutive G1 commands to not need to be repeated</_param>
+            <_param name="help" type="description">When true, white space will use G1 S0 instead of G0. Allows for smoother moves, but maybe slower. Will also create smaller gcode as consecutive G1 commands to not need to be repeated. For Base64, a single line will not be split.</_param>
 
             <param name="xscanline" min="1" max="6" type="int" gui-text="Scan Line Resolution Multiplier: ">1</param>
             <_param name="help" type="description">Multiply the scanline resolution by this amount</_param>
 
             <param name="bg_color" type="enum" gui-text="Replace transparency with">
-				<_item value="#ffffff">White</_item>
-				<_item value="#000000">Black</_item>
-			</param>
+			<_item value="#ffffff">White</_item>
+			<_item value="#000000">Black</_item>
+            </param>
 			
             <param name="resolution" min="1" max="25" type="int" gui-text="Resolution: Cuts per mm">11</param>
             <_param name="help" type="description">Override with resolution=xx in the layer name</_param>
@@ -136,13 +137,10 @@ Tried and true values for different materials (40W CO2 laser)
             <param name="optires" type="boolean" _gui-text="Optimise Resolution:">true</param>
             <_param name="help" type="description">Optimise resolution to stepper motor steps</_param>
 
-			<param name="speed_ON" type="int" min="1" max="9000" gui-text="Rastering speed">5000</param>
+	    <param name="speed_ON" type="int" min="1" max="9000" gui-text="Rastering speed">5000</param>
             <_param name="help" type="description">Override with feed=xx in the layer name</_param>
 
-
-
-			
-			<param name="white_cutoff" type="int" min="0" max="255" gui-text="Always turn off laser for pixels this bright (0-255):">254</param>
+	    <param name="white_cutoff" type="int" min="0" max="255" gui-text="Always turn off laser for pixels this bright (0-255):">254</param>
             
             <param name="dummylength" type="int" min="0" max="99" gui-text="Length of dummy ac/deceleration moves, in mm:">3</param>
             <_param name="help" type="description">Distance before and after the line for accel and decel space. Ingored if below is ticked</_param>
@@ -166,8 +164,8 @@ Tried and true values for different materials (40W CO2 laser)
             <_param name="fullhelp" type="description">Override with dir=h,v,45 in the layer name. Only works with All Things RC marlin firmware and Base64 encoding. GRBL comming soon.</_param>
             <param name="raster_45deg_adjust" type="boolean" gui-text="Adjust Resolution for 45deg Raster Line">true</param>
             <_param name="fullhelp" type="description">Lines at 45deg will appear closer to each other than the Horizontal and vertial resolution. Selecting this option will adjust the DPI so that the 45deg line will be the correct distance apart.</_param>
-            <param name="raster_grayscale" type="enum" gui-text="Raster Grayscale">
-				<_item value="g">Grayscale</_item>
+            <param name="raster_greyscale" type="enum" gui-text="Raster Greyscale">
+				<_item value="g">Greyscale</_item>
 				<_item value="d">Dithered</_item>
 				<_item value="l">lineart</_item>
 			</param>
@@ -176,7 +174,7 @@ Dithered/Lineart</_param>
 
             <_param name="fullhelp" type="description">Dithering and Lineart have only two laser states, On and Off. Power can be set on the 'Raster Setup' tab or using the power=xx parameter in the layer name.</_param>
             <_param name="help" type="description">---------------------------------
-Grayscale</_param>
+Greyscale</_param>
 			<param name="laser_min_value" type="int" min="1" max="100" gui-text="Laser minimum brightness">10</param>
             <_param name="help" type="description">Override with minpower=xx in the layer name</_param>
 			

@@ -535,7 +535,7 @@ class Gcode_tools(inkex.Effect):
                                      default="True", help="")
         self.OptionParser.add_option("", "--raster_45deg_adjust", action="store", type="inkbool", dest="raster_45deg_adjust",
                                      default="True", help="")
-        self.OptionParser.add_option("", "--raster_grayscale", action="store", type="string", dest="raster_grayscale",
+        self.OptionParser.add_option("", "--raster_greyscale", action="store", type="string", dest="raster_greyscale",
                                      default="g", help="")
         self.OptionParser.add_option("", "--dl_power", action="store", type="int", dest="dl_power", default="100",
                                      help="")
@@ -733,7 +733,7 @@ class Gcode_tools(inkex.Effect):
     
 
     # Make raster gcode that burns an area in greyscale. base64 makes file transfer efficient.
-    def Rasterbase64(self, id, rasterspeed=None, resolution=None, max_power=None, min_power=None, raster_dir=None, dl_power=None):
+    def Rasterbase64(self, id, rasterspeed=None, resolution=None, max_power=None, min_power=None, raster_dir=None, raster_greyscale=None):
 
         def gccomment(gc):
             if (self.options.gcodecomments): # remove gcode comments
@@ -761,10 +761,10 @@ class Gcode_tools(inkex.Effect):
         if raster_dir==None:
             raster_dir = self.options.raster_direction
         raster_dir = str(raster_dir)
-        if dl_power==None or dl_power < 0:
-            dl_power = self.options.dl_power
+        if raster_greyscale==None:
+            raster_greyscale = self.options.raster_greyscale
 
-        if (self.options.raster_grayscale == 'l'):
+        if (self.options.raster_greyscale == 'l'):
             gs_depth = int(2)
         else:
             gs_depth = int(self.options.greyscale_depth)
@@ -859,7 +859,7 @@ class Gcode_tools(inkex.Effect):
         
         imgresize = PIL.Image.open(exported_png)
         if raster_dir == 'h':
-            imgresize = imgresize.resize((imgresize.size[0], Int(imgresize.size[1]/xscanline)), PIL.Image.ANTIALIAS)
+            imgresize = imgresize.resize((imgresize.size[0], int(imgresize.size[1]/xscanline)), PIL.Image.ANTIALIAS)
         else:
             if raster_dir == 'v': 
                 imgresize = imgresize.resize((int(imgresize.size[0]/xscanline), imgresize.size[1]), PIL.Image.ANTIALIAS)
@@ -889,7 +889,7 @@ class Gcode_tools(inkex.Effect):
         for y in range(h):
             for x in range(w):
                 pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
-                # Convert to grayscale using a method that simulates human vision, and flip value around
+                # Convert to greyscale using a method that simulates human vision, and flip value around
                 avg = (round(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07,0))
                 # Change Gamma  encoded = ((original / 255) ^ (1 / gamma)) * 255
                 #avg = math.pow((avg / 255),(1.0/1.5)) * 255 # Lightend midrange of image
@@ -901,14 +901,13 @@ class Gcode_tools(inkex.Effect):
                 avg = (iavg / 2.55)
                 oavg = avg # Original avg for comparison
                 #if avg <= 0.0:
-                #    avg = shades20[0]
                 if avg <= 1.0:
                     avg = 0
                 else:
-                    if avg >= 100.0:
+                    if avg > 100.0:
                         avg = 100
 
-                mod = 0.1 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
+                mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
                 avg = int((mod*100.0*avg + (1-mod)*(avg**2))/100.0)
 
                 rescale_array[y][x] = int(255-(avg*2.55))
@@ -928,7 +927,7 @@ class Gcode_tools(inkex.Effect):
             return int(newcolour)
 
         ######## Dithering
-        if (self.options.raster_grayscale == 'd'):
+        if (raster_greyscale == 'd'):
             # JJN Dithering
             err_coeffs = [0.0, 0.0, 0.0, 7.0, 5.0, 3.0, 5.0, 7.0, 5.0, 3.0, 1.0, 3.0, 5.0, 3.0, 1.0]
             er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/48.0, err_coeffs)
@@ -1004,7 +1003,7 @@ class Gcode_tools(inkex.Effect):
         # if direction is Horizontal or 45deg
         #if self.options.raster_direction != 'V':
         if raster_dir != 'v':
-            gray_array = [[255 for i in range(w)] for j in range(h)]
+            grey_array = [[255 for i in range(w)] for j in range(h)]
             tmp_array = [[0 for i in range(w)] for j in range(h)]
             for y in range(h):
                 if (self.options.origin == 'topleft'):
@@ -1014,29 +1013,22 @@ class Gcode_tools(inkex.Effect):
 
                 for x in range(w):
                     pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
-                    # Convert to grayscale using a method that simulates human vision, and flip value around
+                    # Convert to greyscale using a method that simulates human vision, and flip value around
                     avg = 255 -(round(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07,0))
                     # Reduce color depth
                     # reduced = int((int((avg/(float(256)/100)))) * (float(255) / (100 -1)))
-                    if (gs_depth < 256): # No need to use this function is full 256 grays are being used. Doesn't make any difference to the result, but may speed up 256 greyscale
+                    if (gs_depth < 256): # No need to use this function is full 256 greys are being used. Doesn't make any difference to the result, but may speed up 256 greyscale
                         reduced = int(int(avg/(256.0/gs_depth))*(255.0/(gs_depth-1)))
                     else:
                         reduced = int(avg)
 
-                    tmp_array[y_tmp][x] = reduced # Export a grayscale PNG based on this array
-                    #tmp_array[y_tmp][x] = int(changerange256(tmp_array[y_tmp][x],min_power*2.55,255)) # Export a grayscale PNG based on this 
-                    # Make mid range pixels lighter
-                    #=($E$2*255*A1+(1-$E$2)*POWER(A1,$E$1))/255
-                    # gray_array[y][x] = (avg**2)/255 # Too much?
-                    #mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
-                    mod = 0.2 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
-                    #gray_array[y_tmp][x] = int((mod*255*reduced + (1-mod)*(reduced**2))/255)
-                    gray_array[y_tmp][x] = reduced
-                    #gray_array[y_tmp][x] = int(changerange256(gray_array[y_tmp][x],min_power*2.55,255))
+                    tmp_array[y_tmp][x] = reduced # Export a greyscale PNG based on this array
+                    mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
+                    grey_array[y_tmp][x] = int((mod*255*reduced + (1-mod)*(reduced**2))/255)
 
         # if Vertical
         else:
-            gray_array = [[255 for i in range(h)] for j in range(w)]
+            grey_array = [[255 for i in range(h)] for j in range(w)]
             tmp_array = [[0 for i in range(h)] for j in range(w)]
             for y in range(h):
                 if (self.options.origin == 'topleft'):
@@ -1046,35 +1038,24 @@ class Gcode_tools(inkex.Effect):
 
                 for x in range(w):
                     pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
-                    # Convert to grayscale using a method that simulates human vision, and flip value around
-                    #avg = 255 -(int(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07))
+                    # Convert to greyscale using a method that simulates human vision, and flip value around
                     avg = 255 -(round(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07,0))
                     # Reduce color depth
-                    # reduced = int((int((avg/(float(256)/100)))) * (float(255) / (100 -1)))
                     if (gs_depth < 256):
                         reduced = int(int(avg/(256.0/gs_depth))*(255.0/(gs_depth-1)))
-                        #if (reduced > 100):
-                            #inkex.errormsg('x:%s, y:%s, avg:%s, r: %s, int:%s, float: %s' %(x,y,avg,reduced,int(avg/(256.0/gs_depth)),(avg/(256.0/gs_depth))))
                     else:
                         reduced = avg
 
-                    tmp_array[x][y_tmp] = reduced # Export a grayscale PNG based on this array
-                    #tmp_array[x][y_tmp] = int(changerange256(tmp_array[x][y_tmp],min_power*2.55,255)) # Export a grayscale PNG based on this array
-                    # Make mid range pixels lighter
-                    #=($E$2*255*A1+(1-$E$2)*POWER(A1,$E$1))/255
-                    # gray_array[y][x] = (avg**2)/255 # Too much?
-                    #mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
-                    #mod = 0.1 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
-                    #gray_array[x][y_tmp] = int((mod*255*reduced + (1-mod)*(reduced**2))/255)
-                    gray_array[x][y_tmp] = reduced
-                    #gray_array[x][y_tmp] = int(changerange256(gray_array[y_tmp][x],min_power*2.55,255))
+                    tmp_array[x][y_tmp] = reduced # Export a greyscale PNG based on this array
+                    mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
+                    grey_array[x][y_tmp] = int((mod*255*reduced + (1-mod)*(reduced**2))/255)
         
         # Make preview png file
         png.from_array(tmp_array,'L').save(exported_png)
 
         ####### Make GCode from image data
         #if self.options.flip_y == False:
-            #gray_array.reverse()
+            #grey_array.reverse()
 
         Laser_ON = False
 
@@ -1095,7 +1076,7 @@ class Gcode_tools(inkex.Effect):
 		########## Pre and Post line acceleration spacing by John Revill
         # Compacts Gcode by combining consecutive pixels with the same value into a single command.
         
-        # Converts grayscale range into laser intensity values suitable for the user's laser machine.
+        # Converts greyscale range into laser intensity values suitable for the user's laser machine.
         def intensity(pix):
             # return "{0:.1f}".format(max_power - (((max_power - self.options.laser_min_value) * pix) / float(255)))
             return "{0:.1f}".format((max_power  * pix) / float(255))
@@ -1347,7 +1328,13 @@ class Gcode_tools(inkex.Effect):
         
         accelspace = int(round(accel_length*scale*xscanline,0))
 
-        maxwhite = (accelspace * 2) + 2 # Maximum number of white pixels to allow in a raster command,
+        if (self.options.burnwhite == True):
+            maxwhite = 999999
+        else:
+            maxwhite = (accelspace * 2) + 2 # Maximum number of white pixels to allow in a raster command,
+            if maxwhite < 20:
+                maxwhite = 20
+
         y = 0
         x = 0 # Actual position in image, the farthest pixel that has been processed
         startx=0
@@ -1367,20 +1354,19 @@ class Gcode_tools(inkex.Effect):
         inkex.errormsg("Acceleration Distance: %smm (%s pixels)" % (accel_length,accelspace))
 
         if (raster_dir != '45'):
-            while y < len(gray_array):
+            while y < len(grey_array):
                 if y % 2 == 0:  # Back and forth motion, start by going right or Up
                     lastx = 0
                     startx = 0
-                    while x < len(gray_array[y]):
+                    while x < len(grey_array[y]):
                         # if pixel is not white: #(value less than white cut-off value)
-                        if gray_array[y][x] > 0: #>= chr(255-self.options.white_cutoff):
+                        if grey_array[y][x] > 0: #>= chr(255-self.options.white_cutoff):
                             # Look at the row of pixels to determine best approach; skip row if all white, break into smaller pieces if over maxwhite white pixels, else raster whole row
                             startx = x
                             whitepixels = 0
                             # loop until too many white pixels are found 
-                            while x < len(gray_array[y]) and whitepixels <= maxwhite:
-                            #and x+whitepixels < len(gray_array[y]):
-                                if gray_array[y][x] >0:#>= chr(255-self.options.white_cutoff):
+                            while x < len(grey_array[y]) and whitepixels <= maxwhite:
+                                if grey_array[y][x] >0:#>= chr(255-self.options.white_cutoff):
                                     # Pixel is colourful, no problem, look for more pixels
                                     whitepixels = 0 # reset counter
                                     x += 1
@@ -1398,22 +1384,14 @@ class Gcode_tools(inkex.Effect):
                                 startx1 = lastx+1
                             endx1 = endx + accelspace
                             lastx = endx1
-                            #data = gray_array[y][startx:endx]
-                            data = gray_array[y][startx1:endx1]
+                            data = grey_array[y][startx1:endx1]
                             data.append(0)
                             
                             data = rescale(data,min_power,max_power)
 
-                            #if (self.options.raster_grayscale == "h"):
-                            #    data = htextend(data)
-                            
-                            #if self.options.raster_direction == "V":
-                            direction = 3
                             if raster_dir == "v":
-                                #raster_gcode += rastertoV(startx1,endx1,y,data,3) # 3 = direction: Vertical away from Origin
                                 direction = 3
                             else:
-                                #raster_gcode += rastertoH(startx1,endx1,y,data,1) # 1= direction: right
                                 direction = 1
                             raster_gcode += rasterto(startx1,endx1,y,data,direction) # 1= direction: right
                                 
@@ -1421,16 +1399,16 @@ class Gcode_tools(inkex.Effect):
                         else: # Did not find a non-white pixel this time, continue right
                             x += 1
                 else:  # Coming back left or Down
-                    lastx = len(gray_array[y]) + accelspace
+                    lastx = len(grey_array[y]) + accelspace
                     startx = -1
                     while x > 0:
                         # if pixel is not white: #(value less than white cut-off value)
-                        if gray_array[y][x - 1] >0: #>= chr(255-self.options.white_cutoff):
+                        if grey_array[y][x - 1] >0: #>= chr(255-self.options.white_cutoff):
                             # <= self.options.white_cutoff:
                             startx=x
                             whitepixels=0
                             while x > 0 and whitepixels <= maxwhite:
-                                if gray_array[y][x-1] >0: #>= chr(255-self.options.white_cutoff):
+                                if grey_array[y][x-1] >0: #>= chr(255-self.options.white_cutoff):
                                     # Pixel is colourful, no problem, look for more pixels
                                     whitepixels = 0 # reset counter
                                     x -= 1
@@ -1444,33 +1422,23 @@ class Gcode_tools(inkex.Effect):
 
                             # Finally, move to beginning of raster line and perform line.
                             startx1 = startx + accelspace
-                            #if (startx1 >= (len(gray_array[y])-1):
-                            #    startx1 = (len(gray_array[y]-1)
                             if (startx1 > lastx):
                                 startx1 = lastx-1
                             endx1 = endx - accelspace
                             if (endx1 < 0):
                                 endx1 = 0
                             lastx = endx1
-                            #data = gray_array[y][endx:startx]
-                            data = gray_array[y][endx1:startx1]
+                            data = grey_array[y][endx1:startx1]
                             data.insert(0,0)
 
                             data = rescale(data,min_power,max_power)
 
                             data.reverse()
 
-                            #if (self.options.raster_grayscale == "h"):
-                            #    data = htextend(data)
-
-                            #if self.options.raster_direction == "V":
                             if raster_dir == "v":
-                                #raster_gcode += rastertoV(startx1,endx1,y,data,2) # 2 = direction: Vertical towards Origin
                                 direction = 2
                             else:
-                                #raster_gcode += rastertoH(startx1,endx1,y,data,0) # 1= direction: left
                                 direction = 0
-                            #raster_gcode += rasterto(startx,endx,y,data,0) # 0= direction: left
                             raster_gcode += rasterto(startx1,endx1,y,data,direction) # 1= direction: left
     
                         else:
@@ -1512,9 +1480,9 @@ class Gcode_tools(inkex.Effect):
             # the modified marlin firmware, Direction 4 goes -x +y direction and direction 5 foes +x -y
             
             i = 1 # i is index
-            # len(gray_array) is length of Y or Height, len(gray_array[0]) is length of X or width
-            w = len(gray_array[0])
-            h = len(gray_array)
+            # len(grey_array) is length of Y or Height, len(grey_array[0]) is length of X or width
+            w = len(grey_array[0])
+            h = len(grey_array)
             #inkex.errormsg("w:%s" % (w))
             #inkex.errormsg("h:%s" % (h))
             #inkex.errormsg("w+h:%s" % (w+h))
@@ -1557,7 +1525,7 @@ class Gcode_tools(inkex.Effect):
                 
                 # Set Start and End coorinates
                 if ((i-1) % 2) == 0: # start with Direction 4 -X +Y
-                    first_pix_x = px1 # first_pix is the starting pixel in the gray_array
+                    first_pix_x = px1 # first_pix is the starting pixel in the grey_array
                     first_pix_y = py1
                     start_cord_x = x1 # start_cord is the starting coordinate on the engraver 
                     start_cord_y = y1 #
@@ -1572,9 +1540,9 @@ class Gcode_tools(inkex.Effect):
                 whitecount = 0
                 while j < diag_length:
                     if ((i-1) % 2) == 0: # start with Direction 4 -X +Y
-                        diag_array[j] = gray_array[first_pix_y+j][first_pix_x-j]
+                        diag_array[j] = grey_array[first_pix_y+j][first_pix_x-j]
                     else:
-                        diag_array[j] = gray_array[first_pix_y-j][first_pix_x+j]
+                        diag_array[j] = grey_array[first_pix_y-j][first_pix_x+j]
                     j += 1
 
                 # At this point we now have the starting point X, Y and the data for the line
@@ -1937,18 +1905,20 @@ class Gcode_tools(inkex.Effect):
                 raster_max_power = layerParams.get('power',self.options.laser_max_value)
                 raster_max_power = layerParams.get('maxpower',raster_max_power)
                 raster_min_power = layerParams.get('minpower',self.options.laser_min_value)
+                raster_dir = layerParams.get('dir',self.options.raster_direction)
+                raster_greyscale = layerParams.get('grey',self.options.raster_greyscale)
                 if (self.options.raster_method == "base64") and (self.options.mainboard == "marlin"):
                     inkex.errormsg("Will raster layer " + layer.get('id') + " using base64 encoding.")
                     gcode_raster += gccommentstart + "Rastering layer " + layer.get('id') + ': ' + label + gccommentend + ' using base64 encoding\n'
 
                     gcode_raster += self.Rasterbase64(layer.get("id"), layerParams.get('feed',self.options.speed_ON), layerParams.get('resolution',self.options.resolution),
-                    raster_max_power,raster_min_power,layerParams.get('dir',self.options.raster_direction))
+                    raster_max_power,raster_min_power,raster_dir,raster_greyscale)
                 else:
                     inkex.errormsg("Will raster layer " + layer.get('id') + " using indivdual gcodes.")
                     gcode_raster += gccommentstart + "Rastering layer " + layer.get('id') + ': ' + label + gccommentend + ' using individual gcodes\n'
 
                     gcode_raster += self.Raster(layer.get("id"), layerParams.get('feed',self.options.speed_ON), layerParams.get('resolution',self.options.resolution),
-                    raster_max_power,raster_min_power)
+                    raster_max_power,raster_min_power,raster_dir,raster_greyscale)
                 
             elif layerParams.get('crosshatch', False):
                 # Raster by cross-hatching diagonally
@@ -2011,7 +1981,7 @@ class Gcode_tools(inkex.Effect):
         global laser_G0_Burns
         global gccommentstart
         global gccommentend
-
+        global lasermaxpower
 		
         root = self.document.getroot()
         # TODO: This does not seem to affect anything? Maybe used to be useful for the old rastering method?
@@ -2108,6 +2078,7 @@ class Gcode_tools(inkex.Effect):
                             gccommentstart = "( "
                             gccommentend = " )"
                             lasermaxpower = 255
+
 
         LASER_ON = laserenablecmd + " ;turn the laser on"  # LASER ON MCODE
         LASER_OFF = laserdisablecmd + " ;turn the laser off\n"  # LASER OFF MCODE
