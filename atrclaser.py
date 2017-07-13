@@ -453,6 +453,158 @@ def parse_layer_name(txt): # Get cutting style information from layername
 
     return params
 
+################################################################################
+###
+###        Pixel processing tools
+###
+################################################################################
+
+def nearestcolour(pixcolour,levels):
+    newcolour = 0
+    colourdiv = 255.0 / float(levels-1) # 255.0 / 8 = 31.875
+    newcolour = int(int((float(pixcolour) / float(colourdiv))+0.5) * colourdiv)
+    #inkex.errormsg('ret nc:%s' %(newcolour))
+    return int(newcolour)
+
+
+################################################################################
+###
+###        Image processing tools
+###
+################################################################################
+
+
+
+def dither_array(w,h,rescale_array,dithermethod=0):
+    ######## Dithering
+    if (dithermethod == 0):
+        # JJN Dithering
+        err_coeffs = [0.0, 0.0, 0.0, 7.0, 5.0, 3.0, 5.0, 7.0, 5.0, 3.0, 1.0, 3.0, 5.0, 3.0, 1.0]
+        er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/48.0, err_coeffs)
+    if (dithermethod == 1):
+        # Floyd-Steinberg Dithering
+        err_coeffs = [0.0, 0.0, 0.0, 7.0, 0.0, 0.0, 3.0, 5.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/16.0, err_coeffs)
+    if (dithermethod == 2):
+        # Floyd-Steinberg (Fake) Dithering
+        err_coeffs = [0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 3.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/8.0, err_coeffs)
+    if (dithermethod == 3):
+        # Stucki Dithering
+        err_coeffs = [0.0, 0.0, 0.0, 8.0, 4.0, 2.0, 4.0, 8.0, 4.0, 2.0, 1.0, 2.0, 4.0, 2.0, 1.0]
+        er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/42.0, err_coeffs)
+    if (dithermethod == 4):
+        # Atkinson Dithering (MacPaint Days)
+        err_coeffs = [0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
+        er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/8.0, err_coeffs)
+    if (dithermethod == 5):
+        # Burkes Dithering
+        err_coeffs = [0.0, 0.0, 0.0, 8.0, 4.0, 2.0, 4.0, 8.0, 4.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/32.0, err_coeffs)
+    for y in range(h):
+        for x in range(w):
+            oldpixel = rescale_array[y][x]
+            newpixel = nearestcolour(oldpixel,2)
+
+            rescale_array[y][x] = newpixel
+            quant_error = float (oldpixel - newpixel)
+            # Same row
+            #if ( x > 1):
+                #rescale_array[y+1][x-2] += (er6 * quant_error)
+            #if ( x > 0):
+            #rescale_array[y+1][x-1] += (er7 * quant_error)
+            #rescale_array[y+1][x] += (er8 * quant_error)
+            if ( x < w - 1):
+                rescale_array[y][x+1] += (er4 * quant_error)
+            if ( x < w - 2):
+                rescale_array[y][x+2] += (er5 * quant_error)
+            # one row down
+            if (y < h - 1):
+                if ( x > 1):
+                    rescale_array[y+1][x-2] += (er6 * quant_error)
+                if ( x > 0):
+                    rescale_array[y+1][x-1] += (er7 * quant_error)
+                #if (y < h - 1):
+                rescale_array[y+1][x] += (er8 * quant_error)
+                if ( x < w - 1):
+                    rescale_array[y+1][x+1] += (er9 * quant_error)
+                if ( x < w - 2):
+                    rescale_array[y+1][x+1] += (er10 * quant_error)
+            # two rows down
+            if (y < h - 2):
+                if ( x > 1):
+                    rescale_array[y+2][x-2] += (er11 * quant_error)
+                if ( x > 0):
+                    rescale_array[y+2][x-1] += (er12 * quant_error)
+                #if (y < h - 2):
+                rescale_array[y+2][x] += (er13 * quant_error)
+                if ( x < w - 1):
+                    rescale_array[y+2][x+1] += (er14 * quant_error)
+                if ( x < w - 2):
+                    rescale_array[y+2][x+1] += (er15 * quant_error)
+    return w,h,rescale_array
+	
+	
+	
+def greyscale_array(exported_png,mod=1):
+    ######## Remap power curve using a power profile
+    pngrescale = png.Reader(exported_png)
+    w, h, pixels, metadata = pngrescale.read_flat()
+    pixelsize = 4 if metadata['alpha'] else 3
+    rescale_array = [[0 for i in range(w)] for j in range(h)]
+    for y in range(h):
+        for x in range(w):
+            pos = (x + y * w) * pixelsize #pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
+            # Convert to greyscale using a method that simulates human vision, and flip value around
+            avg = (round(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07,0))
+            avg = 255.0 - avg
+            if (mod < 1):
+                avg = int((mod*255.0*avg + (1-mod)*(avg**2))/255.0)
+
+            rescale_array[y][x] = int(255-avg)
+    return w,h,rescale_array
+
+
+
+def pwrmapped_array(w,h,rescale_array,raster_dir,origin,gs_depth):
+    ######## Make an array containing the image in greyscale with pixel brightness representing laser power.
+	######## Also rotate for easy working with Vertical files.
+        
+    if raster_dir != 'v': # Horizontal or 45 deg
+        tmp_array = [[0 for i in range(w)] for j in range(h)]
+    else: # Vertical
+        tmp_array = [[0 for i in range(h)] for j in range(w)]
+
+    for y in range(h):
+        if (origin == 'topleft'):
+            y_tmp = y
+        else:
+            y_tmp = h-y-1
+
+        for x in range(w):
+            avg = 255 - rescale_array[y][x] #(round(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07,0)) # Convert to greyscale using a method that simulates human vision, and flip value around
+            # Reduce color depth
+            if (gs_depth < 256): # No need to use this function is full 256 greys are being used. Doesn't make any difference to the result, but may speed up 256 greyscale
+                reduced = int(int(avg/(256.0/gs_depth))*(255.0/(gs_depth-1)))
+            else:
+                reduced = int(avg)
+
+            if raster_dir != 'v': # Horizontal or 45 deg
+                tmp_array[y_tmp][x] = reduced # Export a greyscale PNG based on this array
+            else:  # if Vertical
+                tmp_array[x][y_tmp] = reduced # Export a greyscale PNG based on this array
+        
+    if raster_dir != 'v': # Horizontal or 45 deg
+        a1 = h
+        b1 = w
+    else:  # if Vertical
+        a1 = w
+        b1 = h
+
+    # write modified file
+    #png.from_array(tmp_array,'L').save(exported_png)
+    return a1,b1,tmp_array
+
 
 ################################################################################
 ###
@@ -764,7 +916,7 @@ class Gcode_tools(inkex.Effect):
         if raster_greyscale==None:
             raster_greyscale = self.options.raster_greyscale
 
-        if (self.options.raster_greyscale == 'l'):
+        if (raster_greyscale == 'l'):
             gs_depth = int(2)
         else:
             gs_depth = int(self.options.greyscale_depth)
@@ -848,7 +1000,6 @@ class Gcode_tools(inkex.Effect):
         raster_gcode += '; Exported PNG file: ' + exported_png + "\n"
         command = "inkscape \"%s\" -i \"%s\" -j -b\"%s\" -C --export-png=\"%s\" -d %s" % (
             current_file, id, self.options.bg_color, exported_png, (pixelresolution * 25.4))
-        #raster_gcode += '; CMD: ' + command + "\n"
         # command="inkscape -C -e \"%s\" -b\"%s\" %s -d %s" % (exported_png, bg_color, current_file, DPI)
         
         p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -881,178 +1032,19 @@ class Gcode_tools(inkex.Effect):
                 newvalue = 0
             return int(newvalue)
 
-        ######## rescale for from 0-255 to 175-255
-        pngrescale = png.Reader(exported_png)
-        w, h, pixels, metadata = pngrescale.read_flat()
-        rescale_array = [[0 for i in range(w)] for j in range(h)]
+        ######## Covert to Greyscale using a mod power curve
+        w,h,rescale_array = greyscale_array(exported_png,0.8)
 
-        for y in range(h):
-            for x in range(w):
-                pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
-                # Convert to greyscale using a method that simulates human vision, and flip value around
-                avg = (round(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07,0))
-                # Change Gamma  encoded = ((original / 255) ^ (1 / gamma)) * 255
-                #avg = math.pow((avg / 255),(1.0/1.5)) * 255 # Lightend midrange of image
-                #avg = 255-(math.pow(((255-avg) / 255),(1.0/2)) * 255) # Negative Gamma (Darkens image)
-                # change the pixel brightness range
-                #avg = changerange256(avg,64,255) # with 0 being solid black, only go down to 175 which means everything will be dithered with a max of 31%
-
-                iavg = 255.0-avg
-                avg = (iavg / 2.55)
-                oavg = avg # Original avg for comparison
-                #if avg <= 0.0:
-                if avg <= 1.0:
-                    avg = 0
-                else:
-                    if avg > 100.0:
-                        avg = 100
-
-                mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
-                avg = int((mod*100.0*avg + (1-mod)*(avg**2))/100.0)
-
-                rescale_array[y][x] = int(255-(avg*2.55))
-
-        png.from_array(rescale_array,'L').save(exported_png)
-
-        rgbimg = Image.open(exported_png)
-        rgbimg = rgbimg.convert('RGB')
-        rgbimg.save(exported_png, 'PNG' )
-                
-        
-        def nearestcolour(pixcolour,levels):
-            #newcolour = 0
-            colourdiv = 255.0 / float(levels-1) # 255.0 / 8 = 31.875
-            newcolour = int(int((float(pixcolour) / float(colourdiv))+0.5) * colourdiv)
-            #inkex.errormsg('ret nc:%s' %(newcolour))
-            return int(newcolour)
 
         ######## Dithering
         if (raster_greyscale == 'd'):
-            # JJN Dithering
-            err_coeffs = [0.0, 0.0, 0.0, 7.0, 5.0, 3.0, 5.0, 7.0, 5.0, 3.0, 1.0, 3.0, 5.0, 3.0, 1.0]
-            er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/48.0, err_coeffs)
-            # Floyd-Steinberg Dithering
-            #err_coeffs = [0.0, 0.0, 0.0, 7.0, 0.0, 0.0, 3.0, 5.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            #er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/16.0, err_coeffs)
-            # Floyd-Steinberg (Fake) Dithering
-            #err_coeffs = [0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 3.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            #er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/8.0, err_coeffs)
-            # Stucki Dithering
-            #err_coeffs = [0.0, 0.0, 0.0, 8.0, 4.0, 2.0, 4.0, 8.0, 4.0, 2.0, 1.0, 2.0, 4.0, 2.0, 1.0]
-            #er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/42.0, err_coeffs)
-            # Atkinson Dithering (MacPaint Days)
-            #err_coeffs = [0.0, 0.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0]
-            #er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/8.0, err_coeffs)
-            # Burkes Dithering
-            #err_coeffs = [0.0, 0.0, 0.0, 8.0, 4.0, 2.0, 4.0, 8.0, 4.0, 2.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-            #er1, er2, er3, er4, er5, er6, er7, er8, er9, er10, er11, er12, er13, er14, er15 = map(lambda x : float(x)/32.0, err_coeffs)
-            for y in range(h):
-                for x in range(w):
+            w,h,rescale_array = dither_array(w,h,rescale_array,0)
 
-                    # dither using JJN algorithm
-                    oldpixel = rescale_array[y][x]
-                    newpixel = nearestcolour(oldpixel,2)
+        ######## Make an array containing the image in greyscale with pixel brightness representing laser power. Also rotate
+        w,h,grey_array = pwrmapped_array(w,h,rescale_array, raster_dir, self.options.origin,gs_depth)
+        png.from_array(grey_array,'L').save(exported_png)
 
-                    rescale_array[y][x] = newpixel
-                    quant_error = float (oldpixel - newpixel)
-                    # Same row
-                    #if ( x > 1):
-                        #rescale_array[y+1][x-2] += (er6 * quant_error)
-                    #if ( x > 0):
-                        #rescale_array[y+1][x-1] += (er7 * quant_error)
-                    #rescale_array[y+1][x] += (er8 * quant_error)
-                    if ( x < w - 1):
-                        rescale_array[y][x+1] += (er4 * quant_error)
-                    if ( x < w - 2):
-                        rescale_array[y][x+2] += (er5 * quant_error)
-                    # one row down
-                    if ( x > 1) and (y < h - 1):
-                        rescale_array[y+1][x-2] += (er6 * quant_error)
-                    if ( x > 0) and (y < h - 1):
-                        rescale_array[y+1][x-1] += (er7 * quant_error)
-                    if (y < h - 1):
-                        rescale_array[y+1][x] += (er8 * quant_error)
-                    if ( x < w - 1) and (y < h - 1):
-                        rescale_array[y+1][x+1] += (er9 * quant_error)
-                    if ( x < w - 2) and (y < h - 1):
-                        rescale_array[y+1][x+1] += (er10 * quant_error)
-                    # two rows down
-                    if ( x > 1) and (y < h - 2):
-                        rescale_array[y+2][x-2] += (er11 * quant_error)
-                    if ( x > 0) and (y < h - 2):
-                        rescale_array[y+2][x-1] += (er12 * quant_error)
-                    if (y < h - 2):
-                        rescale_array[y+2][x] += (er13 * quant_error)
-                    if ( x < w - 1) and (y < h - 2):
-                        rescale_array[y+2][x+1] += (er14 * quant_error)
-                    if ( x < w - 2) and (y < h - 2):
-                        rescale_array[y+2][x+1] += (er15 * quant_error)
-                    
-                    
-            png.from_array(rescale_array,'L').save(exported_png)
-            ditheredimg = Image.open(exported_png)
-            #ditheredimg = ditheredimg.convert('1')
-            ditheredimg = ditheredimg.convert('RGB')
-            ditheredimg.save(exported_png, 'PNG' )
-
-        ######## Open the image that was exported with Inkscape
-        reader = png.Reader(exported_png)
-        w, h, pixels, metadata = reader.read_flat()
-        
-        ######## Make an array containing the image in greyscale
-        # if direction is Horizontal or 45deg
-        #if self.options.raster_direction != 'V':
-        if raster_dir != 'v':
-            grey_array = [[255 for i in range(w)] for j in range(h)]
-            tmp_array = [[0 for i in range(w)] for j in range(h)]
-            for y in range(h):
-                if (self.options.origin == 'topleft'):
-                    y_tmp = y
-                else:
-                    y_tmp = h-y-1
-
-                for x in range(w):
-                    pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
-                    # Convert to greyscale using a method that simulates human vision, and flip value around
-                    avg = 255 -(round(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07,0))
-                    # Reduce color depth
-                    # reduced = int((int((avg/(float(256)/100)))) * (float(255) / (100 -1)))
-                    if (gs_depth < 256): # No need to use this function is full 256 greys are being used. Doesn't make any difference to the result, but may speed up 256 greyscale
-                        reduced = int(int(avg/(256.0/gs_depth))*(255.0/(gs_depth-1)))
-                    else:
-                        reduced = int(avg)
-
-                    tmp_array[y_tmp][x] = reduced # Export a greyscale PNG based on this array
-                    mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
-                    grey_array[y_tmp][x] = int((mod*255*reduced + (1-mod)*(reduced**2))/255)
-
-        # if Vertical
-        else:
-            grey_array = [[255 for i in range(h)] for j in range(w)]
-            tmp_array = [[0 for i in range(h)] for j in range(w)]
-            for y in range(h):
-                if (self.options.origin == 'topleft'):
-                    y_tmp = y
-                else:
-                    y_tmp = h-y-1
-
-                for x in range(w):
-                    pos = (x + y * w) * 4 if metadata['alpha'] else (x + y * w) * 3
-                    # Convert to greyscale using a method that simulates human vision, and flip value around
-                    avg = 255 -(round(pixels[pos] * 0.21 + pixels[pos + 1] * 0.72 + pixels[pos + 2] * 0.07,0))
-                    # Reduce color depth
-                    if (gs_depth < 256):
-                        reduced = int(int(avg/(256.0/gs_depth))*(255.0/(gs_depth-1)))
-                    else:
-                        reduced = avg
-
-                    tmp_array[x][y_tmp] = reduced # Export a greyscale PNG based on this array
-                    mod = 0.9 # Affect how close to the quadratic curve the final value should go: 1=full reduction (max 63from linear) 0= linear (max 0 from linear)
-                    grey_array[x][y_tmp] = int((mod*255*reduced + (1-mod)*(reduced**2))/255)
-        
-        # Make preview png file
-        png.from_array(tmp_array,'L').save(exported_png)
-
+	   
         ####### Make GCode from image data
         #if self.options.flip_y == False:
             #grey_array.reverse()
@@ -2078,6 +2070,17 @@ class Gcode_tools(inkex.Effect):
                             gccommentstart = "( "
                             gccommentend = " )"
                             lasermaxpower = 255
+                        else:
+                            if (self.options.mainboard == 'linuxcnc'): # gcode for LinuxCNC
+                                laserenablecmd = "M68 E0"
+                                laseroffcmd = "Q0"
+                                laserpwrcmd = "Q"
+                                laserdisablecmd = "M67 E0 Q0"
+                                laser_combine_move_and_power = False
+                                laser_G0_Burns = True
+                                gccommentstart = "( "
+                                gccommentend = " )"
+                                lasermaxpower = 255
 
 
         LASER_ON = laserenablecmd + " ;turn the laser on"  # LASER ON MCODE

@@ -76,7 +76,8 @@ Tried and true values for different materials (40W CO2 laser)
             <_param name="feedratemodhelp" type="description">Feedrate is lowered when farther away from the origin point in order to compensate for lost laser power at larger coordinates. Doesn't work well with Base64 yet</_param>
             <_param name="stepperspacer1" type="description">--------------------------------</_param>
             <param name="pulleyteeth" type="int" min="1" max="40" _gui-text="Pulley Teeth:">20</param>
-            <param name="pulleypitch" type="int" min="1" max="5" _gui-text="Pulley Pitch (mm):">2</param>
+            <_param name="help" type="description">Set Teeth to 1 if using lead screw instead of belt</_param>
+            <param name="pulleypitch" type="int" min="1" max="5" _gui-text="Pulley / Lead Screw Pitch (mm):">2</param>
             <param name="stepperrev" type="int" min="1" max="1000" _gui-text="Stepper steps per rev:">200</param>
             <param name="steppermicro" type="int" min="1" max="64" _gui-text="Stepper microsteps:">16</param>
         </page>
