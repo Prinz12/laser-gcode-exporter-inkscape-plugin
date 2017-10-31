@@ -637,7 +637,7 @@ class Gcode_tools(inkex.Effect):
         self.OptionParser.add_option("-p", "--feed", action="store", type="int", dest="feed", default="300",
                                      help="Default Cut Feed rate in unit/min")
         self.OptionParser.add_option("-l", "--laser", action="store", type="float", dest="laser", default="10",
-                                     help="Default Laser intensity (0-100 %)")
+                                     help="Default Laser intensity (0.0-100 %)")
 
         self.OptionParser.add_option("", "--line_type", action="store", type="string", dest="line_type", default="s",
                                      help="Default Line type (Solid/Pulsed)")
