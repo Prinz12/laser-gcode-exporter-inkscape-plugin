@@ -28,7 +28,7 @@ This extension operates on the WYSIWYG principle: Only non-hidden layers are exp
 
 You can select what to do with a layer by naming it:
 
-For example: 
+For example:
 power=10, feed=5000, repeat=2
 This would cut the layer twice at F5000 S10.
 
@@ -81,7 +81,7 @@ Tried and true values for different materials (40W CO2 laser)
             <param name="stepperrev" type="int" min="1" max="1000" _gui-text="Stepper steps per rev:">200</param>
             <param name="steppermicro" type="int" min="1" max="64" _gui-text="Stepper microsteps:">16</param>
         </page>
-        
+
         <page name='tab' _gui-text='Preferences'>
             <param name="origin" type="enum" _gui-text="Y Axis Origin: ">
                 <item value="topleft">Top Left</item>
@@ -91,13 +91,13 @@ Tried and true values for different materials (40W CO2 laser)
             <param name="filename" type="string" _gui-text="File name: ">output.g</param>
             <param name="directory" type="string" _gui-text="Directory: "></param>
             <_param name="help" type="description">(blank is your desktop)</_param>
-			
+
             <param name="feed" type="int" min="1" max="8000" _gui-text="Default Cut Feedrate:">1500</param>
-			
+
             <param name="Mfeed" type="int" min="1" max="30000" _gui-text="Default Traversal Feedrate:">3000</param>
-			
-            <param name="laser" type="int" min="0" max="100" _gui-text="Default Cut Laser Intensity (0-100%):">10</param>
-			
+
+            <param name="laser" type="float" precision="1" min="0.0" max="100" _gui-text="Default Cut Laser Intensity (0.0-100%):">10</param>
+
             <param name="line_type" type="enum" gui-text="Cutting/Vector Line Type">
 				<_item value="s">Solid</_item>
 				<_item value="p">Pulsed/Perforated</_item>
@@ -106,12 +106,12 @@ Tried and true values for different materials (40W CO2 laser)
             <param name="lplmm" type="float" precision="2" min="0.01" max="100" _gui-text="Default Pulse Length (0.01-100)mm:">1.5</param>
 
             <param name="homebefore" type="boolean" _gui-text="Home X and Y Before:">true</param>
-			
+
             <param name="homeafter" type="boolean" _gui-text="Home X and Y After:">true</param>
- 
+
 
         </page>
-			
+
 		<page name='tab' _gui-text='Raster Setup'>
             <param name="raster_method" type="enum" gui-text="Rastering method">
                 <_item value="base64">Base64 encoded (Marlin Only)</_item>
@@ -131,7 +131,7 @@ Tried and true values for different materials (40W CO2 laser)
 			<_item value="#ffffff">White</_item>
 			<_item value="#000000">Black</_item>
             </param>
-			
+
             <param name="resolution" min="1" max="25" type="int" gui-text="Resolution: Cuts per mm">11</param>
             <_param name="help" type="description">Override with resolution=xx in the layer name</_param>
 
@@ -142,16 +142,16 @@ Tried and true values for different materials (40W CO2 laser)
             <_param name="help" type="description">Override with feed=xx in the layer name</_param>
 
 	    <param name="white_cutoff" type="int" min="0" max="255" gui-text="Always turn off laser for pixels this bright (0-255):">254</param>
-            
+
             <param name="dummylength" type="int" min="0" max="99" gui-text="Length of dummy ac/deceleration moves, in mm:">3</param>
             <_param name="help" type="description">Distance before and after the line for accel and decel space. Ingored if below is ticked</_param>
-			
+
             <param name="autodummy" type="boolean" _gui-text="Automatically calculate acceleration:">true</param>
             <_param name="help" type="description">Based on the feed rate selected and the acceleration value below</_param>
-            
+
             <param name="accel" type="int" min="0" max="9999" gui-text="Acceleration (mm/s2):">500</param>
             <_param name="help" type="description">Use the acceleration for the axis that does the most movement. X axis for Horizontal, Y axis for Vertical</_param>
-			
+
             <param name="gcodecomments" type="boolean" _gui-text="Remove gcode comments from gcode lines:">true</param>
             <_param name="help" type="description">Removing comments helps reduce the file size.</_param>
 
@@ -176,15 +176,14 @@ Dithered/Lineart</_param>
             <_param name="fullhelp" type="description">Dithering and Lineart have only two laser states, On and Off. Power can be set on the 'Raster Setup' tab or using the power=xx parameter in the layer name.</_param>
             <_param name="help" type="description">---------------------------------
 Greyscale</_param>
-			<param name="laser_min_value" type="int" min="1" max="100" gui-text="Laser minimum brightness">10</param>
+			<param name="laser_min_value" type="float" precision="1" min="0.1" max="100" gui-text="Laser minimum brightness">10.0</param>
             <_param name="help" type="description">Override with minpower=xx in the layer name</_param>
-			
-			<param name="laser_max_value" type="int" min="1" max="100" gui-text="Laser maximum brightness">50</param>
+
+			<param name="laser_max_value" type="float" precision="1" min="1.0" max="100" gui-text="Laser maximum brightness">50.0</param>
             <_param name="help" type="description">Override with maxpower=xx in the layer name</_param>
-			
+
 			<param name="greyscale_depth" type="int" min="2" max="256" gui-text="Number of shades of gray to use (2-256):">256</param>
             <_param name="help" type="description"></_param>
         </page>
-    </param>    
+    </param>
 </inkscape-extension>
-
